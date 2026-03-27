@@ -9,6 +9,9 @@ from dasha import calculate_dashas
 from dignity import get_dignity, check_combustion, get_digbala
 from yoga import detect_yogas
 from panchang import calculate_panchang
+from ashtakavarga import calculate_ashtakavarga
+from jaimini import calculate_jaimini_karakas
+from shadbala import calculate_shadbala
 
 swe.set_ephe_path('')
 
@@ -43,6 +46,96 @@ def calculate_dashamsha(longitude):
 
     return ZODIAC_SIGNS[d10_idx]
 
+def calculate_d3_drekkana(longitude):
+    """Calculates D3 (Drekkana) sign."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / 10.0)
+    if part == 0:
+        d3_idx = sign_idx
+    elif part == 1:
+        d3_idx = (sign_idx + 4) % 12
+    else:
+        d3_idx = (sign_idx + 8) % 12
+    return ZODIAC_SIGNS[d3_idx]
+
+def calculate_d4_chaturthamsha(longitude):
+    """Calculates D4 (Chaturthamsha) sign."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / 7.5)
+    d4_idx = (sign_idx + (part * 3)) % 12
+    return ZODIAC_SIGNS[d4_idx]
+
+def calculate_d7_saptamsha(longitude):
+    """Calculates D7 (Saptamsha) sign."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / (30.0 / 7.0))
+    if (sign_idx + 1) % 2 != 0:  # Odd sign
+        d7_idx = (sign_idx + part) % 12
+    else:  # Even sign
+        d7_idx = (sign_idx + 6 + part) % 12
+    return ZODIAC_SIGNS[d7_idx]
+
+def calculate_d12_dwadashamsha(longitude):
+    """Calculates D12 (Dwadashamsha) sign."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / 2.5)
+    d12_idx = (sign_idx + part) % 12
+    return ZODIAC_SIGNS[d12_idx]
+
+def calculate_d24_chaturvimshamsha(longitude):
+    """Calculates D24 (Chaturvimshamsha / Siddhamsha) sign — Education & Learning.
+    Odd signs: count from Leo. Even signs: count from Cancer."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / (30.0 / 24.0))
+    if (sign_idx + 1) % 2 != 0:  # Odd sign
+        d24_idx = (4 + part) % 12  # Leo = index 4
+    else:
+        d24_idx = (3 + part) % 12  # Cancer = index 3
+    return ZODIAC_SIGNS[d24_idx]
+
+def calculate_d30_trimshamsha(longitude):
+    """Calculates D30 (Trimshamsha) sign — Misfortunes & Diseases.
+    Uses the BPHS unequal division: 5°, 5°, 8°, 7°, 5° for odd signs
+    and reversed for even signs."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    is_odd = (sign_idx + 1) % 2 != 0
+
+    if is_odd:
+        # Odd: Mars(5), Saturn(5), Jupiter(8), Mercury(7), Venus(5)
+        if degree < 5: lord = "Mars"
+        elif degree < 10: lord = "Saturn"
+        elif degree < 18: lord = "Jupiter"
+        elif degree < 25: lord = "Mercury"
+        else: lord = "Venus"
+    else:
+        # Even: Venus(5), Mercury(7), Jupiter(8), Saturn(5), Mars(5)
+        if degree < 5: lord = "Venus"
+        elif degree < 12: lord = "Mercury"
+        elif degree < 20: lord = "Jupiter"
+        elif degree < 25: lord = "Saturn"
+        else: lord = "Mars"
+
+    # D30 sign = the sign owned by the lord
+    from constants import OWN_SIGNS
+    return OWN_SIGNS[lord][0]  # Return the first own sign
+
+def calculate_d60_shashtiamsha(longitude):
+    """Calculates D60 (Shashtiamsha) sign.
+    BPHS: Odd signs count from self, Even signs count from opposite (7th)."""
+    sign_idx = int(longitude / 30)
+    degree = longitude % 30
+    part = int(degree / 0.5)
+    if (sign_idx + 1) % 2 != 0:  # Odd sign
+        d60_idx = (sign_idx + part) % 12
+    else:  # Even sign
+        d60_idx = (sign_idx + 6 + part) % 12
+    return ZODIAC_SIGNS[d60_idx]
 
 def get_vedic_aspects(planet_name, sign_idx):
     """
@@ -176,8 +269,15 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "is_combust": is_combust,
             "dignity": dignity,
             "has_digbala": has_digbala,
+            "d3_sign": calculate_d3_drekkana(rp["lon"]),
+            "d4_sign": calculate_d4_chaturthamsha(rp["lon"]),
+            "d7_sign": calculate_d7_saptamsha(rp["lon"]),
             "d9_sign": calculate_navamsha(rp["lon"]),
             "d10_sign": calculate_dashamsha(rp["lon"]),
+            "d12_sign": calculate_d12_dwadashamsha(rp["lon"]),
+            "d24_sign": calculate_d24_chaturvimshamsha(rp["lon"]),
+            "d30_sign": calculate_d30_trimshamsha(rp["lon"]),
+            "d60_sign": calculate_d60_shashtiamsha(rp["lon"]),
             "aspects": get_vedic_aspects(name, rp["sign_idx"]),
         }
         planets_output[name] = planet_entry
@@ -207,6 +307,10 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     # --- Panchang ---
     panchang_data = calculate_panchang(jd, sun_lon, moon_lon, lat, lon)
 
+    # --- Ashtakavarga ---
+    sav_planets = {name: rp["sign_idx"] for name, rp in raw_planets.items() if name in ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]}
+    ashtakavarga_data = calculate_ashtakavarga(sav_planets, asc_sign_idx)
+
     # --- Assemble output ---
     chart_data = {
         "metadata": {
@@ -224,12 +328,22 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "degree": asc_deg,
             "nakshatra": asc_nak["name"],
             "pada": asc_nak["pada"],
+            "d3_sign": calculate_d3_drekkana(asc_lon),
+            "d4_sign": calculate_d4_chaturthamsha(asc_lon),
+            "d7_sign": calculate_d7_saptamsha(asc_lon),
             "d9_sign": calculate_navamsha(asc_lon),
             "d10_sign": calculate_dashamsha(asc_lon),
+            "d12_sign": calculate_d12_dwadashamsha(asc_lon),
+            "d24_sign": calculate_d24_chaturvimshamsha(asc_lon),
+            "d30_sign": calculate_d30_trimshamsha(asc_lon),
+            "d60_sign": calculate_d60_shashtiamsha(asc_lon),
         },
         "planets": planets_output,
         "dashas": dasha_data,
         "yogas": yogas,
+        "ashtakavarga": ashtakavarga_data,
+        "jaimini_karakas": calculate_jaimini_karakas(planets_output),
+        "shadbala": calculate_shadbala(planets_output, raw_planets),
     }
 
     return chart_data
@@ -295,6 +409,7 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
             "nakshatra": get_nakshatra(planet_lon)["name"],
             "house_from_lagna": house_from_lagna,
             "house_from_moon": house_from_moon,
+            "sav_points": natal_chart.get("ashtakavarga", {}).get("sarvashtakavarga", {}).get(sign, 0)
         }
 
     # Ketu
@@ -309,6 +424,7 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
         "nakshatra": get_nakshatra(ketu_lon)["name"],
         "house_from_lagna": _house_from_lagna(k_sign_idx, natal_lagna_idx),
         "house_from_moon": _house_from_lagna(k_sign_idx, natal_moon_idx),
+        "sav_points": natal_chart.get("ashtakavarga", {}).get("sarvashtakavarga", {}).get(k_sign, 0)
     }
 
     # --- Sade Sati detection ---
