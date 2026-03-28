@@ -5,7 +5,7 @@ from constants import (
 )
 
 
-def get_dignity(planet_name, sign, degree_in_sign):
+def get_dignity(planet_name, sign, degree_in_sign, planets_in_signs=None):
     """
     Determine a planet's dignity in a given sign per BPHS.
     Returns one of: exalted, mooltrikona, own_sign, friend, neutral, enemy, debilitated.
@@ -39,6 +39,9 @@ def get_dignity(planet_name, sign, degree_in_sign):
     sign_lord = SIGN_LORDS.get(sign)
     if not sign_lord:
         return "neutral"
+
+    if planets_in_signs:
+        return get_compound_relationship(planet_name, sign, planets_in_signs)
 
     if sign_lord in NATURAL_FRIENDS.get(planet_name, []):
         return "friend"

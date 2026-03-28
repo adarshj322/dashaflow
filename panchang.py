@@ -3,7 +3,7 @@ from constants import TITHI_NAMES, VARA_NAMES, VARA_LORDS, PANCHANG_YOGA_NAMES, 
 from nakshatra import get_nakshatra
 
 
-def calculate_panchang(jd, sun_lon, moon_lon):
+def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
     """
     Calculate the five Panchang elements for a given moment.
 
@@ -31,6 +31,22 @@ def calculate_panchang(jd, sun_lon, moon_lon):
     # JD 2451545.0 (2000-01-01 12:00 UT) was a Saturday
     # weekday = (JD + 1.5) % 7 => 0=Mon, 1=Tue, ... 6=Sun (Julian convention)
     day_idx = int(math.floor(jd + 0.5)) % 7
+    
+    # Correct for local sunrise if lat/lon provided
+    if lat is not None and lon is not None:
+        try:
+            import swisseph as swe
+            swe.set_topo(lon, lat, 0)
+            # Find the sunrise for the current civil day UT
+            jd_midnight = math.floor(jd - 0.5) + 0.5
+            res, tret = swe.rise_trans(jd_midnight, swe.SUN, "", swe.CALC_RISE, (lon, lat, 0.0))
+            sunrise_jd = tret[0]
+            # If born before today's sunrise, the Vedic day is yesterday
+            if jd < sunrise_jd:
+                day_idx = (day_idx - 1) % 7
+        except Exception:
+            pass
+
     # JD 0 = Monday (Julian proleptic). Map: 0=Mon,1=Tue,...6=Sun
     vara = VARA_NAMES[day_idx]
     vara_lord = VARA_LORDS[day_idx]

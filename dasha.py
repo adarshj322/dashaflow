@@ -5,7 +5,7 @@ from nakshatra import get_nakshatra
 
 def _add_years_days(dt, years, days):
     """Add fractional years (as whole years + remaining days) to a datetime."""
-    total_days = years * 365.25 + days
+    total_days = years * 365.2425 + days
     return dt + datetime.timedelta(days=total_days)
 
 
@@ -72,7 +72,7 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
     cursor = birth_dt
 
     first_maha_years = VIMSHOTTARI_YEARS[nak_lord] * remaining_fraction
-    first_maha_days = first_maha_years * 365.25
+    first_maha_days = first_maha_years * 365.2425
     first_end = cursor + datetime.timedelta(days=first_maha_days)
     timeline.append({
         "planet": nak_lord,
@@ -89,7 +89,7 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
         for i in range(start_offset, 9):
             lord = DASHA_SEQUENCE[(seq_start + i) % 9]
             years = VIMSHOTTARI_YEARS[lord]
-            days = years * 365.25
+            days = years * 365.2425
             end = cursor + datetime.timedelta(days=days)
             timeline.append({
                 "planet": lord,
@@ -144,7 +144,7 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
             "end": t["end"],
         })
         t_end = datetime.datetime.strptime(t["end"], "%Y-%m-%d")
-        if t_end > birth_dt + datetime.timedelta(days=120 * 365.25):
+        if t_end > birth_dt + datetime.timedelta(days=120 * 365.2425):
             break
 
     return {

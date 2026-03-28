@@ -191,18 +191,26 @@ def detect_yogas(planets, lagna_sign):
         dispositor = SIGN_LORDS.get(sign)
         if dispositor:
             disp_data = planets.get(dispositor)
-            if disp_data and disp_data.get("house") in KENDRA_HOUSES:
-                cancellation = True
-                cancel_reason = f"Dispositor {dispositor} in kendra (house {disp_data['house']})."
+            if disp_data:
+                if disp_data.get("house") in KENDRA_HOUSES:
+                    cancellation = True
+                    cancel_reason = f"Dispositor {dispositor} in kendra from Lagna."
+                elif moon_data and _house_from(moon_idx, disp_data["sign_idx"]) in KENDRA_HOUSES:
+                    cancellation = True
+                    cancel_reason = f"Dispositor {dispositor} in kendra from Moon."
 
         if not cancellation and p_name in EXALTATION:
             exalt_sign = EXALTATION[p_name][0]
             exalt_lord = SIGN_LORDS.get(exalt_sign)
             if exalt_lord:
                 el_data = planets.get(exalt_lord)
-                if el_data and el_data.get("house") in KENDRA_HOUSES:
-                    cancellation = True
-                    cancel_reason = f"Lord of exaltation sign ({exalt_lord}) in kendra (house {el_data['house']})."
+                if el_data:
+                    if el_data.get("house") in KENDRA_HOUSES:
+                        cancellation = True
+                        cancel_reason = f"Lord of exaltation sign ({exalt_lord}) in kendra from Lagna."
+                    elif moon_data and _house_from(moon_idx, el_data["sign_idx"]) in KENDRA_HOUSES:
+                        cancellation = True
+                        cancel_reason = f"Lord of exaltation sign ({exalt_lord}) in kendra from Moon."
 
         if cancellation:
             yogas.append({

@@ -81,5 +81,41 @@ def cast_transit_chart(
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+def calculate_compatibility(
+    dob1: str, time1: str, lat1: float, lon1: float, tz1: str,
+    dob2: str, time2: str, lat2: float, lon2: float, tz2: str
+) -> str:
+    """
+    Calculates traditional 36-point Ashtakoot relationship compatibility between two people.
+    By tradition, Person 1 (dob1) should be Male and Person 2 (dob2) should be Female for accurate points.
+    
+    Returns the score breakdown (Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi)
+    and the total score out of 36.
+    
+    Parameters:
+        dob1, time1, lat1, lon1, tz1: Birth details for Person 1 (e.g. "1990-04-15", "14:30")
+        dob2, time2, lat2, lon2, tz2: Birth details for Person 2
+    """
+    try:
+        from vedic_calculator import calculate_vedic_chart
+        from matchmaking import calculate_ashtakoot
+        from constants import ZODIAC_SIGNS
+        
+        chart1 = calculate_vedic_chart(dob1, time1, lat1, lon1, tz1)
+        chart2 = calculate_vedic_chart(dob2, time2, lat2, lon2, tz2)
+        
+        m_moon = chart1["planets"]["Moon"]
+        f_moon = chart2["planets"]["Moon"]
+        
+        m_lon = ZODIAC_SIGNS.index(m_moon["sign"]) * 30 + m_moon["degree"]
+        f_lon = ZODIAC_SIGNS.index(f_moon["sign"]) * 30 + f_moon["degree"]
+        
+        score = calculate_ashtakoot(m_lon, f_lon)
+        return json.dumps(score, indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 if __name__ == "__main__":
     mcp.run()
