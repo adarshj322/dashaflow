@@ -103,6 +103,8 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
     active_maha = None
     active_antar = None
     active_pratyantar = None
+    active_sukshma = None
+    active_prana = None
 
     for period in timeline:
         p_start = datetime.datetime.strptime(period["start"], "%Y-%m-%d")
@@ -135,6 +137,32 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
                     active_pratyantar = prat
                     break
 
+            # Level 4: Sukshma Dasha
+            if active_pratyantar:
+                prat_start = datetime.datetime.strptime(active_pratyantar["start"], "%Y-%m-%d")
+                prat_days = active_pratyantar["days"]
+                sukshmas = _build_sub_periods(prat_start, prat_days, active_pratyantar["planet"])
+
+                for suk in sukshmas:
+                    s_start = datetime.datetime.strptime(suk["start"], "%Y-%m-%d")
+                    s_end = datetime.datetime.strptime(suk["end"], "%Y-%m-%d")
+                    if s_start <= query_dt < s_end:
+                        active_sukshma = suk
+                        break
+
+                # Level 5: Prana Dasha
+                if active_sukshma:
+                    suk_start = datetime.datetime.strptime(active_sukshma["start"], "%Y-%m-%d")
+                    suk_days = active_sukshma["days"]
+                    pranas = _build_sub_periods(suk_start, suk_days, active_sukshma["planet"])
+
+                    for pra in pranas:
+                        pra_start = datetime.datetime.strptime(pra["start"], "%Y-%m-%d")
+                        pra_end = datetime.datetime.strptime(pra["end"], "%Y-%m-%d")
+                        if pra_start <= query_dt < pra_end:
+                            active_prana = pra
+                            break
+
     # Trim timeline to a reasonable window (birth to ~120 years)
     compact_timeline = []
     for t in timeline:
@@ -151,5 +179,7 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
         "maha": active_maha,
         "antar": active_antar,
         "pratyantar": active_pratyantar,
+        "sukshma": active_sukshma,
+        "prana": active_prana,
         "timeline": compact_timeline,
     }

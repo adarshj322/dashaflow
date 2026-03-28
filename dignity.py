@@ -81,6 +81,8 @@ def get_compound_relationship(planet_name, sign, planets_in_signs):
         return natural
 
     dist = (sign_lord_idx - planet_sign_idx) % 12
+    # Houses 2,3,4,10,11,12 from planet are temporary friends (BPHS)
+    # dist values {1,2,3,9,10,11} map to these houses (0-indexed)
     temp_friend_positions = {1, 2, 3, 9, 10, 11}
     is_temp_friend = dist in temp_friend_positions
 

@@ -106,9 +106,23 @@ def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int):
     bav_dict = {}
     for p, arr in bav.items():
         bav_dict[p] = {ZODIAC_SIGNS[i]: arr[i] for i in range(12)}
-        
+
+    # Prashtarashtakavarga (expanded scatter chart)
+    # For each target planet, shows which source contributed bindus to which sign
+    prashtara = {}
+    for target_planet, contributions in ASHTAKAVARGA_TABLES.items():
+        prashtara[target_planet] = {}
+        for source_point, houses_list in contributions.items():
+            source_idx = positions[source_point]
+            row = [0] * 12
+            for h in houses_list:
+                target_sign_idx = (source_idx + (h - 1)) % 12
+                row[target_sign_idx] = 1
+            prashtara[target_planet][source_point] = {ZODIAC_SIGNS[i]: row[i] for i in range(12)}
+
     return {
         "sarvashtakavarga": sav_dict,
         "bhinnashtakavarga": bav_dict,
+        "prashtarashtakavarga": prashtara,
         "total_bindus": sum(sav) # Should be 337
     }

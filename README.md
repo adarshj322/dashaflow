@@ -1,36 +1,48 @@
 # RishiAI — Vedic Astrology MCP Server
 
-A Vedic astrology engine exposed as an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server, built on the **Swiss Ephemeris** with **Sidereal Lahiri** ayanamsha. Designed to power AI astrologer agents (like the included **RishiAI** persona) with astronomically precise chart data rooted in *Brihat Parashara Hora Shastra* (BPHS).
+A Vedic astrology engine exposed as an [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server, built on the **Swiss Ephemeris** with **Sidereal Lahiri** ayanamsha. Designed to power AI astrologer agents (like the included **RishiAI** persona) with astronomically precise chart data rooted in *Brihat Parashara Hora Shastra* (BPHS) and B.V. Raman's *Hindu Predictive Astrology*.
 
 ## Features
 
 - **Natal Chart Casting** — Ascendant (Lagna), all nine Vedic grahas (Sun through Ketu), whole-sign houses, nakshatras with padas, and planetary dignities
-- **Divisional Charts** — D3, D4, D7, D9, D10, D12, D24, D30, D60 sign placements for every planet and the Lagna
-- **Planetary Strength** — Dignity classification, combustion detection (BPHS orbs), retrograde status, Digbala (directional strength), and **Shadbala** (six-fold mathematical strength as Rupas and % of required strength)
+- **14 Divisional Charts** — D2 (Hora), D3, D4, D7, D9 (Navamsha), D10 (Dashamsha), D12, D16 (Shodashamsha), D20 (Vimshamsha), D24, D27 (Bhamsha), D30, D40 (Akshavedamsha), D60 sign placements for every planet and the Lagna
+- **Planetary Strength** — Dignity classification (B.V. Raman aligned), combustion detection (BPHS orbs), retrograde status, Digbala (directional strength), **Shadbala** (six-fold mathematical strength with enhanced Saptavargaja, Paksha, Ayana, Chesta, and Drik balas), and **Ishta/Kashta Phala** (auspicious/inauspicious potential per planet)
 - **Jaimini Karakas** — All 7 Karakas by degree (Atmakaraka, Amatyakaraka, Bhratrukaraka, Matrukaraka, Putrakaraka, Gnatikaraka, Darakaraka)
-- **Ashtakavarga** — Sarvashtakavarga (SAV) and Bhinnashtakavarga (BAV) points per sign for all 7 classical planets
-- **BPHS Aspects** — Standard 7th-house aspects for all planets, plus special aspects for Mars (4th/8th), Jupiter (5th/9th), and Saturn (3rd/10th)
-- **Vimshottari Dasha** — Full 120-year Mahadasha timeline, with active Mahadasha, Antardasha, and Pratyantardasha for any query date
-- **Yoga Detection** — Pancha Mahapurusha, Gajakesari, Budhaditya, Chandra-Mangal, Kemadruma, Adhi Yoga, Raj Yoga, Viparita Raj Yoga, and Neecha Bhanga Raja Yoga
+- **Ashtakavarga** — Sarvashtakavarga (SAV), Bhinnashtakavarga (BAV), and **Prashtara Ashtakavarga** (source-level bindu contributions showing which planet contributed to which sign)
+- **BPHS Aspects** — Standard 7th-house aspects for all planets, plus special aspects for Mars (4th/8th), Jupiter (5th/9th), and Saturn (3rd/10th) with weighted partial aspects
+- **Vimshottari Dasha (5 levels)** — Full 120-year Mahadasha timeline, with active Mahadasha, Antardasha, Pratyantardasha, **Sukshma**, and **Prana** dasha for any query date
+- **24 Yoga Types** — Pancha Mahapurusha (5), Gajakesari, Budhaditya, Chandra-Mangal, Kemadruma, Adhi Yoga, Raj Yoga (dual lordship + conjunction), Viparita Raj Yoga, Neecha Bhanga Raja Yoga, Parivartana (Maha/Khala/Dainya), Dhana Yoga, Sunapha/Anapha/Durudhura, Amala, Saraswati, Lakshmi, Veshi/Voshi/Ubhayachari
 - **Panchang** — Birth Tithi, Vara (weekday lord), Nakshatra, Panchang Yoga, and Karana
 - **Transit Overlay** — Current planetary positions mapped to natal houses (from Lagna and Moon), SAV transit points, Sade Sati detection with phase, and Rahu-Ketu transit axis
-- **Ashtakoot Compatibility** — 36-point matchmaking (Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi)
+- **16-Factor Compatibility** — 8 traditional Ashtakoot kutas (36 pts) + Mahendra, Stree Deergha, Vedha, Rajju, BadConstellations, LagnaHouse7, SexEnergy, and **Kuja Dosha** (Manglik) analysis with dignity-based scoring and exception logic
+- **Muhurtha (Electional Astrology)** — Panchang Suddhi checks, activity-specific rules for 6 domains (marriage, travel, business, education, house_entry, medical), marriage doshas (Sagraha, Shashtashta, Bhrigupta Shatka, Kujaasthama)
+- **Career Analysis** — D10 Dashamsha career analysis with planet-career significations, sign-career domains, 10th house analysis, and career theme recommendations
+- **Bhava Chalit Chart** — Equal-house Bhava Chalit with cusps from Lagna midpoint, showing which planets shift bhavas compared to whole-sign houses
+- **Planetary Avasthas** — Five age-states per BPHS (Bala, Kumara, Yuva, Vriddha, Mrita) with odd/even sign reversal, indicating each planet's capacity to deliver results
+- **Kaal Sarpa Dosha** — Full and partial Kaal Sarpa detection with ascending/descending type classification and Rahu-Ketu axis reporting
+- **Graha Yuddha (Planetary War)** — Detection of true planets within 1° longitude, reporting winner, loser, and separation
+- **Gandanta Detection** — Identifies planets and Lagna within 3°20' of water-fire sign boundaries (karmic knot junctions)
+- **Arudha Padas** — All 12 Arudha Padas (A1–A12) with BPHS exception rule (same-sign/7th → 10th shift). Key padas: A1 (worldly image), A7 (spouse), A10 (career reputation)
+- **Upapada Lagna** — A12 calculation with lord and 2nd-from-UL for marriage analysis
+- **Karakamsha Analysis** — Atmakaraka in Navamsha with house from Lagna, Ishta Devata detection (12th from Karakamsha), and planets in Karakamsha sign
 
 ## Architecture
 
 ```
-mcp_server.py              MCP entry point — exposes 3 tools
+mcp_server.py              MCP entry point — exposes 5 tools
   └── vedic_calculator.py  Core engine — Swiss Ephemeris computations & chart assembly
         ├── constants.py   Zodiac signs, sign lords, nakshatras, dasha years, dignity tables
         ├── nakshatra.py   Nakshatra lookup from longitude
         ├── panchang.py    Tithi, Vara, Yoga, Karana calculations
-        ├── yoga.py        Yoga detection logic
-        ├── dasha.py       Vimshottari Dasha period computation
+        ├── yoga.py        24 yoga detection types + Kaal Sarpa, Graha Yuddha, Gandanta
+        ├── dasha.py       Vimshottari Dasha (5 levels: Maha→Antar→Pratyantar→Sukshma→Prana)
         ├── dignity.py     Dignity, combustion, digbala, compound relationships
-        ├── ashtakavarga.py SAV & BAV calculations
-        ├── jaimini.py     7-Karaka calculation by degree
-        ├── shadbala.py    Six-fold planetary strength (Shadbala)
-        └── matchmaking.py 36-point Ashtakoot compatibility
+        ├── ashtakavarga.py SAV, BAV & Prashtara Ashtakavarga
+        ├── jaimini.py     7-Karaka calculation + Arudha Padas + Upapada + Karakamsha
+        ├── shadbala.py    Six-fold planetary strength + Ishta/Kashta Phala
+        ├── matchmaking.py 16-factor compatibility + Kuja Dosha
+        ├── muhurtha.py    Electional astrology (6 activity types)
+        └── career.py      D10 Dashamsha career analysis
 
 .agents/
   ├── rules/rishi-ai.md       RishiAI persona — always-on system rule
@@ -58,9 +70,11 @@ mcp_server.py              MCP entry point — exposes 3 tools
 
 ```bash
 git clone <repo-url>
-cd Astrology_script_antigrqavity
+cd Astrology_script
 
-pip install swisseph pytz mcp
+pip install -r requirements.txt
+# or manually:
+pip install pyswisseph pytz mcp
 ```
 
 ## MCP Tools
@@ -78,7 +92,7 @@ Generates a complete Vedic natal chart.
 | `timezone` | string | IANA timezone (e.g. `"Asia/Kolkata"`) |
 | `query_date` | string | Optional — date for Dasha lookup, defaults to today |
 
-**Returns:** JSON with `metadata`, `panchang`, `lagna` (with D3–D60 signs), `planets` (with dignity, combustion, Shadbala, Jaimini karakas, all Varga signs, aspects), `dashas`, `yogas`, `ashtakavarga`, `jaimini_karakas`, `shadbala`.
+**Returns:** JSON with `metadata`, `panchang`, `lagna` (with D2–D60 signs), `planets` (with dignity, combustion, Shadbala, all 14 Varga signs, aspects), `dashas` (5 levels: Maha/Antar/Pratyantar/Sukshma/Prana + timeline), `yogas` (24 types), `ashtakavarga` (SAV + BAV + Prashtara), `jaimini_karakas`, `shadbala` (with Ishta/Kashta Phala), `bhava_chalit` (equal-house Chalit), `avasthas` (5 age-states), `kaal_sarpa`, `graha_yuddha`, `gandanta`, `arudha_padas` (A1–A12), `upapada`, `karakamsha`.
 
 ### `cast_transit_chart`
 
@@ -94,21 +108,52 @@ Calculates planetary transits overlaid on a natal chart.
 
 ### `calculate_compatibility`
 
-Calculates traditional 36-point Ashtakoot compatibility. Person 1 = Male, Person 2 = Female.
+Calculates 16-factor compatibility + Kuja Dosha. Person 1 = Male, Person 2 = Female.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `dob1`, `time1`, `lat1`, `lon1`, `tz1` | various | Birth details for Person 1 (Male) |
 | `dob2`, `time2`, `lat2`, `lon2`, `tz2` | various | Birth details for Person 2 (Female) |
 
-**Returns:** Score breakdown (Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi) and total out of 36.
+**Returns:** 8 Ashtakoot kutas (36 pts: Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi), additional kutas (Mahendra, Stree Deergha, Vedha, Rajju, BadConstellations, LagnaHouse7, SexEnergy), exception logic, and Kuja Dosha analysis with per-person scores and compatibility verdict.
 
-## RishiAI Agent Setup (Antigravity)
+### `check_muhurtha`
 
-The `.agents/` directory configures the **RishiAI** persona for the [Antigravity](https://antigravity.sh) AI coding assistant:
+Evaluates whether a date/time is auspicious for a specific activity (electional astrology).
 
-- **`rules/rishi-ai.md`** (`trigger: always_on`) — the persistent persona and tool reference loaded on every message.
-- **`workflows/`** — topic-specific analysis workflows invoked by typing `/workflow-name` in chat (e.g., `/career-analysis`).
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `activity` | string | One of: `marriage`, `travel`, `business`, `education`, `house_entry`, `medical` |
+| `date` | string | Date to evaluate — `"YYYY-MM-DD"` |
+| `time` | string | Time to evaluate — `"HH:MM"` (24-hour) |
+| `lat` | float | Location latitude |
+| `lon` | float | Location longitude |
+| `timezone` | string | IANA timezone string |
+
+**Returns:** JSON with `verdict` (auspicious/mixed_favorable/mixed/inauspicious), `score`, `positive_factors`, `negative_factors`, `panchang_suddhi`, and `marriage_doshas` (for marriage activity).
+
+### `analyze_career_chart`
+
+Analyzes career potential using the 10th house, D10 Dashamsha, and planetary significations.
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `dob` | string | Date of birth — `"YYYY-MM-DD"` |
+| `time` | string | Time of birth — `"HH:MM"` (24-hour) |
+| `lat` | float | Birth latitude |
+| `lon` | float | Birth longitude |
+| `timezone` | string | IANA timezone string |
+
+**Returns:** JSON with `tenth_house` info, `d10_indicators` (planet-by-planet D10 analysis), `career_themes` (ranked career domains), and `strength_factors`.
+
+## RishiAI Agent Setup
+
+The `.agents/` directory configures the **RishiAI** persona for AI coding assistants (Antigravity, VS Code Copilot, etc.):
+
+- **`rules/rishi-ai.md`** (`trigger: always_on`) — the persistent persona and tool reference loaded on every message. Documents all 5 MCP tools, their parameters and return schemas, and the interpretation methodology.
+- **`workflows/`** — 12 topic-specific analysis workflows invoked via slash commands (e.g., `/career-analysis`, `/muhurtha-analysis`).
+
+The `.cursor/rules/rishi-ai.mdc` file mirrors the same rules for Cursor IDE users.
 
 ## Ayanamsha
 

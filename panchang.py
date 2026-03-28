@@ -89,6 +89,9 @@ def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
             "pada": nak["pada"],
             "lord": nak["lord"],
         },
-        "yoga": yoga_name,
+        "yoga": {
+            "index": yoga_idx,
+            "name": yoga_name,
+        },
         "karana": karana_name,
     }

@@ -13,7 +13,8 @@ All values are in Shashtiamshas (60ths of a Rupa). 1 Rupa = 60 Shashtiamshas.
 
 from constants import (
     ZODIAC_SIGNS, EXALTATION, DEBILITATION, OWN_SIGNS,
-    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES, DIGBALA_HOUSES
+    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES, NATURAL_NEUTRALS,
+    DIGBALA_HOUSES, SIGN_LORDS
 )
 import math
 
@@ -44,11 +45,41 @@ def _uchcha_bala(planet_name, planet_lon):
     return round(bala, 2)
 
 
-def _saptavargaja_bala(planet_name, dignity):
+def _varga_dignity(planet_name, varga_sign):
     """
-    Strength based on dignity status in the rasi chart.
-    Exalted=30, Mooltrikona=22.5, Own=20, Friend=15, Neutral=10, Enemy=5, Debilitated=2
-    (Simplified: using D1 only instead of full 7 vargas)
+    Determine a planet's dignity in a given varga chart sign.
+    Returns a score: exalted=30, mooltrikona=22.5, own=20, friend=15, neutral=10, enemy=5, debilitated=2.
+    """
+    if not varga_sign or planet_name in ("Rahu", "Ketu"):
+        return 10.0
+    # Exaltation check
+    if planet_name in EXALTATION and EXALTATION[planet_name][0] == varga_sign:
+        return 30.0
+    # Debilitation check
+    if planet_name in DEBILITATION and DEBILITATION[planet_name][0] == varga_sign:
+        return 2.0
+    # Mooltrikona check
+    if planet_name in MOOLTRIKONA and MOOLTRIKONA[planet_name][0] == varga_sign:
+        return 22.5
+    # Own sign check
+    if planet_name in OWN_SIGNS and varga_sign in OWN_SIGNS[planet_name]:
+        return 20.0
+    # Relationship with sign lord
+    sign_lord = SIGN_LORDS.get(varga_sign)
+    if sign_lord and sign_lord != planet_name:
+        if planet_name in NATURAL_FRIENDS and sign_lord in NATURAL_FRIENDS[planet_name]:
+            return 15.0
+        if planet_name in NATURAL_ENEMIES and sign_lord in NATURAL_ENEMIES[planet_name]:
+            return 5.0
+    return 10.0
+
+
+def _saptavargaja_bala(planet_name, dignity, planet_data=None):
+    """
+    Strength based on dignity in the Saptavarga (7 divisional charts):
+    D1 (Rasi), D2 (Hora), D3 (Drekkana), D7 (Saptamsha),
+    D9 (Navamsha), D12 (Dwadashamsha), D30 (Trimshamsha).
+    Each varga contributes up to 30 points; total is averaged.
     """
     dignity_scores = {
         "exalted": 30.0,
@@ -59,7 +90,18 @@ def _saptavargaja_bala(planet_name, dignity):
         "enemy": 5.0,
         "debilitated": 2.0,
     }
-    return dignity_scores.get(dignity, 10.0)
+    d1_score = dignity_scores.get(dignity, 10.0)
+
+    if not planet_data:
+        return d1_score
+
+    varga_keys = ["d2_sign", "d3_sign", "d7_sign", "d9_sign", "d12_sign", "d30_sign"]
+    scores = [d1_score]
+    for key in varga_keys:
+        varga_sign = planet_data.get(key)
+        scores.append(_varga_dignity(planet_name, varga_sign))
+
+    return round(sum(scores) / len(scores), 2)
 
 
 def _ojayugmarasyamsha_bala(planet_name, sign_idx):
@@ -114,9 +156,9 @@ def _drekkana_bala(planet_name, degree_in_sign):
     return 0.0
 
 
-def _sthana_bala(planet_name, planet_lon, dignity, sign_idx, house, degree):
+def _sthana_bala(planet_name, planet_lon, dignity, sign_idx, house, degree, planet_data=None):
     uchcha = _uchcha_bala(planet_name, planet_lon)
-    saptavarga = _saptavargaja_bala(planet_name, dignity)
+    saptavarga = _saptavargaja_bala(planet_name, dignity, planet_data)
     ojayugma = _ojayugmarasyamsha_bala(planet_name, sign_idx)
     kendra = _kendra_bala(house)
     drekkana = _drekkana_bala(planet_name, degree)
@@ -157,34 +199,79 @@ def _dig_bala(planet_name, house):
 # 3. KALA BALA (Temporal Strength) — Simplified
 # ============================================================
 
-def _kala_bala(planet_name, is_day_birth=True):
+def _kala_bala(planet_name, is_day_birth=True, moon_lon=None, sun_lon=None):
     """
-    Simplified Kala Bala.
-    Day-born: Sun, Jupiter, Venus gain strength.
-    Night-born: Moon, Mars, Saturn gain strength.
-    Mercury always gets moderate strength (day or night).
+    Kala Bala with three sub-components:
+    1. Natonnata Bala (day/night strength)
+    2. Paksha Bala (lunar phase strength)
+    3. Ayana Bala (Sun's declination / seasonal strength)
     """
+    # 1. Natonnata Bala (day/night)
     day_planets = ["Sun", "Jupiter", "Venus"]
     night_planets = ["Moon", "Mars", "Saturn"]
-
     if planet_name == "Mercury":
-        return 30.0  # Mercury is always moderate
-    if is_day_birth and planet_name in day_planets:
-        return 60.0
-    if not is_day_birth and planet_name in night_planets:
-        return 60.0
-    return 0.0
+        natonnata = 30.0
+    elif is_day_birth and planet_name in day_planets:
+        natonnata = 60.0
+    elif not is_day_birth and planet_name in night_planets:
+        natonnata = 60.0
+    else:
+        natonnata = 0.0
+
+    # 2. Paksha Bala (Moon phase — benefics strong in Shukla Paksha, malefics in Krishna)
+    paksha = 0.0
+    if moon_lon is not None and sun_lon is not None:
+        tithi_angle = (moon_lon - sun_lon) % 360
+        is_shukla = tithi_angle < 180
+        # Strength proportional to how close to Full/New Moon
+        if is_shukla:
+            phase_ratio = tithi_angle / 180.0
+        else:
+            phase_ratio = (360 - tithi_angle) / 180.0
+        benefics = ["Jupiter", "Venus", "Mercury", "Moon"]
+        if planet_name in benefics:
+            paksha = phase_ratio * 60.0  # benefics strong near Full Moon
+        else:
+            paksha = (1 - phase_ratio) * 60.0  # malefics strong near New Moon
+
+    # 3. Ayana Bala (seasonal — based on Sun's longitude)
+    ayana = 0.0
+    if sun_lon is not None:
+        # Sun 0-180° = Uttarayana (northern), 180-360° = Dakshinayana (southern)
+        # Benefics strong in Uttarayana, malefics in Dakshinayana
+        sun_norm = sun_lon % 360
+        benefics = ["Jupiter", "Venus", "Mercury", "Moon"]
+        if sun_norm < 180:
+            ratio = (180 - abs(sun_norm - 90)) / 180.0
+        else:
+            ratio = (180 - abs(sun_norm - 270)) / 180.0
+        if planet_name in benefics:
+            ayana = ratio * 30.0 if sun_norm < 180 else (1 - ratio) * 30.0
+        else:
+            ayana = (1 - ratio) * 30.0 if sun_norm < 180 else ratio * 30.0
+
+    return round(natonnata + paksha + ayana, 2)
 
 
 # ============================================================
 # 4. CHESTA BALA (Motional Strength)
 # ============================================================
 
+# Average daily speeds in degrees (approximate)
+_AVG_SPEEDS = {
+    "Mars": 0.524,
+    "Mercury": 1.383,
+    "Jupiter": 0.083,
+    "Venus": 1.200,
+    "Saturn": 0.034,
+}
+
+
 def _chesta_bala(planet_name, speed, is_retrograde):
     """
-    Retrograde planets get high Chesta Bala (60).
-    Direct fast planets get moderate (30).
-    Sun and Moon always get 30 (they don't retrograde).
+    Motional strength based on actual speed.
+    Retrograde=60, Stationary(very slow)=45, Direct uses speed ratio.
+    Sun=Chesta from longitude, Moon=Paksha-based (set in Kala Bala).
     """
     if planet_name in ("Sun", "Moon"):
         return 30.0
@@ -192,8 +279,13 @@ def _chesta_bala(planet_name, speed, is_retrograde):
         return 0.0
     if is_retrograde:
         return 60.0
-    # Direct: use speed as a rough proxy (faster = more Chesta)
-    return 30.0
+    avg = _AVG_SPEEDS.get(planet_name, 1.0)
+    abs_speed = abs(speed)
+    if abs_speed < avg * 0.1:
+        return 45.0  # near-stationary
+    # Scale linearly: 0 speed → 45, avg speed → 30, 2x avg → 15
+    ratio = min(abs_speed / avg, 2.0)
+    return round(60.0 - ratio * 15.0, 2)
 
 
 # ============================================================
@@ -215,28 +307,50 @@ NAISARGIKA_BALA = {
 # 6. DRIK BALA (Aspectual Strength) — Simplified
 # ============================================================
 
+# BPHS partial aspect strengths (house distance → fraction)
+_ASPECT_STRENGTH = {
+    3: 0.25, 4: 0.75, 5: 0.50, 7: 1.00, 8: 0.75, 9: 0.50, 10: 0.25,
+}
+# Special full aspects override
+_SPECIAL_ASPECTS = {
+    "Mars": {4: 1.00, 8: 1.00},
+    "Jupiter": {5: 1.00, 9: 1.00},
+    "Saturn": {3: 1.00, 10: 1.00},
+}
+
+
 def _drik_bala(planet_name, house, planets_data):
     """
-    Simplified: benefics (Jupiter, Venus, Mercury, Moon) aspecting
-    add strength; malefics (Saturn, Mars, Sun, Rahu, Ketu) aspecting reduce.
+    Aspectual strength using BPHS weighted partial aspects.
+    Benefics aspecting add strength; malefics reduce it.
+    Aspect weight varies by house distance and special aspects.
     """
     benefics = ["Jupiter", "Venus", "Mercury", "Moon"]
     malefics = ["Saturn", "Mars", "Sun", "Rahu", "Ketu"]
 
+    target_sign_idx = ZODIAC_SIGNS.index(planets_data[planet_name]["sign"])
     score = 0.0
-    for name, data in planets_data.items():
-        if name == planet_name:
-            continue
-        # Check if this planet aspects the target planet's sign
-        if "aspects" in data:
-            target_sign = planets_data[planet_name]["sign"]
-            if target_sign in data["aspects"]:
-                if name in benefics:
-                    score += 10.0
-                elif name in malefics:
-                    score -= 10.0
 
-    # Clamp to [0, 60]
+    for name, data in planets_data.items():
+        if name == planet_name or name in ("Rahu", "Ketu"):
+            continue
+        aspector_sign_idx = ZODIAC_SIGNS.index(data["sign"])
+        house_dist = ((target_sign_idx - aspector_sign_idx) % 12) + 1
+        if house_dist == 1:
+            continue  # conjunction, not aspect
+
+        # Check if this planet aspects at this distance
+        special = _SPECIAL_ASPECTS.get(name, {})
+        strength = special.get(house_dist, _ASPECT_STRENGTH.get(house_dist, 0.0))
+        if strength <= 0:
+            continue
+
+        if name in benefics:
+            score += strength * 15.0
+        elif name in malefics:
+            score -= strength * 15.0
+
+    # Normalize to [0, 60] range with 30 as midpoint
     return round(max(0.0, min(60.0, score + 30.0)), 2)
 
 
@@ -272,6 +386,10 @@ def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool
     """
     result = {}
 
+    # Extract Sun and Moon longitudes for Kala Bala sub-components
+    sun_lon = raw_planets.get("Sun", {}).get("lon")
+    moon_lon = raw_planets.get("Moon", {}).get("lon")
+
     for planet_name in ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]:
         if planet_name not in planets_data or planet_name not in raw_planets:
             continue
@@ -279,9 +397,9 @@ def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool
         pd = planets_data[planet_name]
         rp = raw_planets[planet_name]
 
-        sthana = _sthana_bala(planet_name, rp["lon"], pd["dignity"], rp["sign_idx"], pd["house"], pd["degree"])
+        sthana = _sthana_bala(planet_name, rp["lon"], pd["dignity"], rp["sign_idx"], pd["house"], pd["degree"], pd)
         dig = _dig_bala(planet_name, pd["house"])
-        kala = _kala_bala(planet_name, is_day_birth)
+        kala = _kala_bala(planet_name, is_day_birth, moon_lon, sun_lon)
         chesta = _chesta_bala(planet_name, rp["speed"], pd["is_retrograde"])
         naisargika = NAISARGIKA_BALA.get(planet_name, 0.0)
         drik = _drik_bala(planet_name, pd["house"], planets_data)
@@ -290,6 +408,13 @@ def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool
         total_rupas = round(total_shashtiamshas / 60.0, 2)
         required = REQUIRED_SHADBALA.get(planet_name, 5.0)
         is_strong = total_rupas >= required
+
+        # Ishta Phala and Kashta Phala (BPHS)
+        # Ishta = sqrt(Uchcha Bala * Chesta Bala)
+        # Kashta = sqrt((60 - Uchcha Bala) * (60 - Chesta Bala))
+        uchcha = sthana["uchcha"]
+        ishta_phala = round(math.sqrt(max(0, uchcha * chesta)), 2)
+        kashta_phala = round(math.sqrt(max(0, (60.0 - uchcha) * (60.0 - chesta))), 2)
 
         result[planet_name] = {
             "sthana_bala": sthana,
@@ -303,6 +428,8 @@ def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool
             "required_rupas": required,
             "is_strong": is_strong,
             "strength_ratio": round(total_rupas / required, 2),
+            "ishta_phala": ishta_phala,
+            "kashta_phala": kashta_phala,
         }
 
     return result

@@ -113,13 +113,17 @@ OWN_SIGNS = {
 }
 
 # (sign, start_degree, end_degree) -- per BPHS
+# Mooltrikona ranges per B.V. Raman (Hindu Predictive Astrology).
+# Note: Pure BPHS has slightly narrower ranges for Moon(4-20), Mars(0-12),
+# Jupiter(0-10), Venus(0-5). Raman's expanded ranges are used here for
+# compatibility with VedAstro and most modern Vedic software.
 MOOLTRIKONA = {
     "Sun":     ("Leo", 0, 20),
-    "Moon":    ("Taurus", 4, 20),
-    "Mars":    ("Aries", 0, 12),
+    "Moon":    ("Taurus", 4, 30),
+    "Mars":    ("Aries", 0, 18),
     "Mercury": ("Virgo", 16, 20),
-    "Jupiter": ("Sagittarius", 0, 10),
-    "Venus":   ("Libra", 0, 15),
+    "Jupiter": ("Sagittarius", 0, 13),
+    "Venus":   ("Libra", 0, 10),
     "Saturn":  ("Aquarius", 0, 20),
 }
 
