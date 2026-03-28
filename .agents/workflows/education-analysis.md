@@ -16,8 +16,10 @@ When analyzing education and learning prospects, follow these steps:
    - Type of education (technical, arts, spiritual, medical, etc.)
    - Success in competitive exams
    - Higher education and research potential
-9. **Timing**: Analyze Dasha/Antardasha of the 4th lord, 5th lord, Mercury, and Jupiter for:
+9. **Timing**: Analyze Dasha/Antardasha (all 5 levels available: Maha → Antar → Pratyantar → Sukshma → Prana) of the 4th lord, 5th lord, Mercury, and Jupiter for:
    - Best periods for study and exams
    - Challenging academic periods
    - Foreign education possibilities (Rahu/12th house involvement)
-10. **Synthesize**: Provide actionable insights on the ideal field of study, exam preparation strategy, and timing of academic milestones.
+10. **Avasthas**: Check `avasthas` for Mercury, Jupiter, and the 4th/5th lords — Yuva = full intellectual delivery; Bala/Mrita = diminished academic performance regardless of dignity.
+11. **Bhava Chalit**: Compare the 4th and 5th lord whole-sign houses with `bhava_chalit` placements — if education lords shift bhavas in Chalit, the type or arena of learning may differ from Rashi expectations.
+12. **Synthesize**: Provide actionable insights on the ideal field of study, exam preparation strategy, and timing of academic milestones.

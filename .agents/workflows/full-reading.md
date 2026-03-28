@@ -20,7 +20,7 @@ A brief, striking summary of their nature:
 - Dominant yogas shaping their life pattern
 
 ### 2. The Current Vibe (Dasha + Transit Snapshot)
-- Active Mahadasha → Antardasha → Pratyantardasha and what they signify
+- Active Mahadasha → Antardasha → Pratyantardasha → Sukshma → Prana (all 5 Dasha levels available) and what they signify
 - Saturn, Jupiter, Rahu/Ketu transit houses from Lagna and Moon
 - Sade Sati status
 - Overall energy: growth / consolidation / challenge / transformation
@@ -30,12 +30,20 @@ Use the **House + Lord + Karaka** framework:
 - Identify the relevant house(s) (7th = marriage, 10th = career, 5th = children, etc.)
 - Analyze the house lord: placement, dignity, combust/retrograde, aspects received
 - Check natural Karaka (Jupiter = children/wisdom, Venus = love/luxury, Saturn = work/discipline)
-- Cross-check D9 for relationship questions; D10 for career; D24 for education; D30/D60 for deeper karmic themes
+- Cross-check D2 (Hora/wealth), D9 for relationship questions; D10 for career; D16 (vehicles/comforts); D20 (spiritual); D24 for education; D27 (strengths); D30/D40/D60 for deeper karmic themes
+- Use `ashtakavarga.prashtarashtakavarga` for granular analysis of which planets contribute bindus to which houses
+- Compare `bhava_chalit` with whole-sign houses — if a planet shifts bhavas, use the chalit house for result-giving and the rashi house for lordship
+- Check `avasthas` for each planet — Yuva = full delivery, Bala/Mrita = severely diminished regardless of dignity
+- If `kaal_sarpa.active`, note the nodal axis dominance (ascending vs descending, partial vs full) and its life theme
+- Check `graha_yuddha` for planetary wars — the loser's significations suffer; the winner absorbs energy
+- Check `gandanta` for karmic knot planets at water-fire boundaries — extreme transformation potential
+- Use `arudha_padas` — A1 for public image, A7 for spouse perception, A10 for career reputation
+- Use `upapada` (UL) for marriage quality clues and `karakamsha` for soul-level inclinations and Ishta Devata
 
 ### 4. Yoga Impact
-For each yoga in the `yogas` array:
+For each yoga in the `yogas` array (up to 24 types detected including Pancha Mahapurusha, Gajakesari, Budhaditya, Raj Yoga, Viparita Raj, Neecha Bhanga, Parivartana, Dhana, Sunapha/Anapha/Durudhura, Amala, Saraswati, Lakshmi, Veshi/Voshi/Ubhayachari):
 - What it promises
-- Whether forming planets are strong enough to deliver (dignity + combustion check)
+- Whether forming planets are strong enough to deliver (dignity + combustion + Ishta/Kashta Phala check)
 - When most likely to activate (Dasha of the forming planet)
 
 ### 5. Probable Outcomes

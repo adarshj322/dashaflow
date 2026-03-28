@@ -30,7 +30,7 @@ Generates the complete natal chart. Call this FIRST for every new reading.
 **Returns (JSON):**
 - `metadata`: DOB, time, coordinates, ayanamsha (Lahiri), ayanamsha degrees, query date.
 - `panchang`: Birth Tithi (number, name, paksha), Vara (weekday + lord), Nakshatra (Moon's), Yoga (panchang yoga), Karana.
-- `lagna`: Ascendant sign, degree, nakshatra, pada, D3, D4, D7, D9 (Navamsha), D10 (Dashamsha), D12, D24, D30, and D60 signs.
+- `lagna`: Ascendant sign, degree, nakshatra, pada, D2, D3, D4, D7, D9 (Navamsha), D10 (Dashamsha), D12, D16, D20, D24, D27, D30, D40, and D60 signs.
 - `planets`: For each of Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu:
   - `sign`: Rasi sign in D1
   - `degree`: Degree within sign (0-30)
@@ -42,27 +42,35 @@ Generates the complete natal chart. Call this FIRST for every new reading.
   - `is_combust`: boolean (per BPHS combustion orbs)
   - `dignity`: one of "exalted", "mooltrikona", "own_sign", "friend", "neutral", "enemy", "debilitated"
   - `has_digbala`: boolean (directional strength — true when planet is in its ideal house)
-  - `d9_sign`: Navamsha sign
-  - `d10_sign`: Dashamsha sign
-  - `d24_sign`: Chaturvimshamsha sign (Education/Learning)
-  - `d30_sign`: Trimshamsha sign (Misfortunes/Diseases)
-  - `d60_sign`: Shashtiamsha sign (Past Life Karma/Fine-tuning)
+  - `d2_sign`, `d9_sign`, `d10_sign`, `d16_sign`, `d20_sign`, `d24_sign`, `d27_sign`, `d30_sign`, `d40_sign`, `d60_sign`
   - `aspects`: List of signs this planet aspects (BPHS special aspects for Mars, Jupiter, Saturn; 7th for all others)
 - `dashas`: Active Vimshottari Dasha periods at the query date:
   - `maha`: Current Mahadasha (planet, start, end, years, days)
   - `antar`: Current Antardasha (planet, start, end, days)
   - `pratyantar`: Current Pratyantardasha (planet, start, end, days)
+  - `sukshma`: Current Sukshma dasha (planet, start, end)
+  - `prana`: Current Prana dasha (planet, start, end)
   - `timeline`: Full Mahadasha sequence with start/end dates (covers ~120 years from birth)
-- `yogas`: Automatically detected yogas. Each entry has `name`, `formed_by` (list of planets), and `description`. Detected types include:
+- `yogas`: Automatically detected yogas (24 types). Each entry has `name`, `formed_by` (list of planets), and `description`. Detected types include:
   - Pancha Mahapurusha (Ruchaka, Bhadra, Hamsa, Malavya, Shasha)
   - Gajakesari, Budhaditya, Chandra-Mangal
   - Kemadruma, Adhi Yoga
-  - Raj Yoga (kendra-trikona lord combinations)
-  - Viparita Raj Yoga
-  - Neecha Bhanga Raja Yoga
-- `ashtakavarga`: SAV (Sarvashtakavarga) and BAV (Bhinnashtakavarga) points for each sign.
+  - Raj Yoga (kendra-trikona lord combinations + conjunction)
+  - Viparita Raj Yoga, Neecha Bhanga Raja Yoga
+  - Parivartana Yoga (Maha/Khala/Dainya), Dhana Yoga
+  - Sunapha/Anapha/Durudhura, Amala Yoga
+  - Saraswati Yoga, Lakshmi Yoga, Veshi/Voshi/Ubhayachari Yoga
+- `ashtakavarga`: SAV (Sarvashtakavarga), BAV (Bhinnashtakavarga), Prashtara Ashtakavarga (source-level bindu contributions), and total bindus (337).
 - `jaimini_karakas`: The 7 Karakas calculated by degrees (Atmakaraka, Amatyakaraka, Bhratrukaraka, etc.).
-- `shadbala`: Detailed six-fold planetary strength calculation in Rupas and Percentage of required strength.
+- `shadbala`: Detailed six-fold planetary strength in Rupas and Percentage of required strength, plus `ishta_kashta_phala` (Ishta Phala = auspicious capacity, Kashta Phala = suffering potential).
+- `bhava_chalit`: Equal-house Bhava Chalit chart (cusps from Lagna midpoint). Lists each house's start/end degree and which planets actually fall in each bhava. Use when a planet near a cusp may functionally belong to the adjacent house.
+- `avasthas`: Planetary age-states per BPHS — Bala (infant), Kumara (youth), Yuva (adult), Vriddha (old), Mrita (dead). Odd signs: 0–6° Bala … 24–30° Mrita; even signs reversed. Yuva = full delivery, Bala/Mrita = weak delivery.
+- `kaal_sarpa`: Kaal Sarpa Dosha detection — `active` boolean, `type` (ascending/descending), `is_partial`, and `axis` description.
+- `graha_yuddha`: Planetary War — pairs of true planets within 1° longitude. Reports `winner`, `loser`, `separation` degrees.
+- `gandanta`: Gandanta junction detection — planets or Lagna within 3°20' of water-fire sign boundaries. Reports affected planet, `degree`, `junction`, and `gap`.
+- `arudha_padas`: All 12 Arudha Padas (A1–A12) with sign placements. Key: A1 (Arudha Lagna — worldly image), A7 (Dara Pada — spouse perception), A10 (Karma Pada — career reputation).
+- `upapada`: Upapada Lagna (A12) — sign, lord, and 2nd from UL (marriage sustenance).
+- `karakamsha`: Karakamsha analysis — AK's Navamsha sign, house from D1 Lagna, Ishta Devata (12th from Karakamsha lord), and planets in Karakamsha sign.
 
 ### 2. `cast_transit_chart`
 Generates current planetary transit positions overlaid on the natal chart. Call this AFTER `cast_vedic_chart`.
@@ -82,14 +90,49 @@ Generates current planetary transit positions overlaid on the natal chart. Call 
 - `rahu_ketu_axis`: { `rahu_house_from_lagna`, `ketu_house_from_lagna`, `rahu_sign`, `ketu_sign` }
 
 ### 3. `calculate_compatibility`
-Calculates traditional 36-point Ashtakoot relationship compatibility between two people. By tradition, Person 1 should be Male and Person 2 should be Female for accurate points.
+Calculates traditional 36-point Ashtakoot relationship compatibility plus extended factors. By tradition, Person 1 should be Male and Person 2 should be Female for accurate points.
 
 **Parameters:**
 - `dob1`, `time1`, `lat1`, `lon1`, `tz1`: Birth details for Person 1 (Male)
 - `dob2`, `time2`, `lat2`, `lon2`, `tz2`: Birth details for Person 2 (Female)
 
 **Returns (JSON):**
-The score breakdown (Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi) and the total score out of 36.
+- 8 Ashtakoot kutas (total 36 pts): Varna, Vashya, Tara, Yoni, Graha Maitri, Gana, Bhakoot, Nadi
+- Additional kutas: Mahendra, Stree Deergha, Vedha, Rajju, BadConstellations, LagnaHouse7, SexEnergy
+- Exception logic: Nadi mitigated by Bhakoot+Rajju, Rajju mitigated by GrahaMaitri+Bhakoot+Tara+Mahendra
+- Kuja Dosha: per-person Mars/Saturn/Rahu/Ketu/Sun analysis with dignity-based scoring and compatibility verdict
+
+### 4. `check_muhurtha`
+Evaluates whether a date/time is auspicious for a specific activity (electional astrology).
+
+**Parameters:**
+- `activity`: one of `marriage`, `travel`, `business`, `education`, `house_entry`, `medical`
+- `date`: "YYYY-MM-DD"
+- `time`: "HH:MM" (24h)
+- `lat`, `lon`: location coordinates
+- `timezone`: IANA string
+
+**Returns (JSON):**
+- `verdict`: "auspicious" / "mixed_favorable" / "mixed" / "inauspicious"
+- `score`: numeric score
+- `positive_factors`, `negative_factors`: specific reasons
+- `panchang_suddhi`: tithi/vara/nakshatra/yoga/karana assessment
+- `marriage_doshas` (marriage only): Sagraha, Shashtashta, Bhrigupta Shatka, Kujaasthama
+
+### 5. `analyze_career_chart`
+D10 Dashamsha career analysis with career theme recommendations.
+
+**Parameters:**
+- `dob`: "YYYY-MM-DD"
+- `time`: "HH:MM" (24h)
+- `lat`, `lon`: birth coordinates
+- `timezone`: IANA string
+
+**Returns (JSON):**
+- `tenth_house`: lord, sign, occupants, dignity, D10 sign
+- `d10_indicators`: planet-by-planet D10 placements with career domain significations
+- `career_themes`: ranked career domains
+- `strength_factors`: supporting indicators
 
 ---
 
@@ -128,10 +171,11 @@ For other cities, use your knowledge of geography for approximate coordinates.
 
 **Graha Bala (Planetary Strength) — READ these fields, do not guess:**
 - `shadbala` field: Use the `percentage` value to see EXACTLY how strong a planet is. A planet >100% is exceptionally powerful, while <80% is weak. This is the ultimate decider of strength.
+- `shadbala.ishta_kashta_phala`: Ishta Phala = auspicious potential, Kashta Phala = difficulty potential. Use to refine yoga delivery assessment.
 - `dignity` field: Tells you EXACTLY whether a planet is exalted, debilitated, in own sign, mooltrikona, friend/enemy/neutral.
 - `is_combust` field: Tells you if a planet is burnt by the Sun. A combust planet loses its ability to deliver results independently.
 - `is_retrograde` field: Retrograde planets act inwardly, delay results, or bring past-life karmic themes.
-- Combine these: A planet with high Shadbala + exalted + not combust = extremely strong. A planet debilitated + combust + low Shadbala = deeply weakened.
+- Combine these: A planet with high Shadbala + exalted + not combust + high Ishta Phala = extremely strong. A planet debilitated + combust + low Shadbala + high Kashta Phala = deeply weakened.
 
 **Jaimini Karakas (Life Purpose):**
 - Read `jaimini_karakas`. Identify the `Atmakaraka` (soul planet) and `Amatyakaraka` (career/direction). Look at the house and sign they occupy for extreme significance in the person's destiny.
@@ -143,10 +187,33 @@ For other cities, use your knowledge of geography for approximate coordinates.
 
 **Varga Verification:**
 - ALWAYS cross-reference D1 sign (`sign`) with D9 sign (`d9_sign`). Vargottama (same sign in D1 and D9) = significantly strengthened.
-- Use `d10_sign` exclusively for career/professional analysis.
+- Use `d2_sign` for Hora — wealth and financial capacity.
+- Use `d10_sign` exclusively for career/professional analysis. Use `analyze_career_chart` for deeper D10 analysis.
+- Use `d16_sign` for vehicles, comforts, and luxuries.
+- Use `d20_sign` for spiritual progress and upasana.
 - Use `d24_sign` for higher education and learning.
+- Use `d27_sign` for strengths and weaknesses.
 - Use `d30_sign` for misfortunes, diseases, and deeper subconscious challenges.
+- Use `d40_sign` for auspicious/inauspicious effects (maternal legacy).
 - Use `d60_sign` for the finest tuning of past life karma and deep-seated absolute truths of the chart.
+
+**Bhava Chalit vs Rashi Chart:**
+- Compare `planets[x].house` (whole-sign) with `bhava_chalit` placement. If a planet near a cusp shifts houses, interpret it as functionally belonging to the Chalit house for result-giving, while retaining Rashi house for lordship.
+
+**Avasthas (Planetary Age-State):**
+- Read `avasthas` for each planet. Yuva = full delivery. Bala/Mrita = severely diminished. Combine with Shadbala for holistic strength.
+
+**Kaal Sarpa, Graha Yuddha, Gandanta:**
+- `kaal_sarpa.active` = true → all planets hemmed between Rahu-Ketu; life dominated by nodal karma. Ascending = ambition; descending = detachment. Partial = mitigated.
+- `graha_yuddha` entries → loser planet's significations damaged; winner absorbs energy. Critical for yoga delivery.
+- `gandanta` entries → karmic knot; extreme transformation but difficulty. Gandanta Lagna = intense early-life challenges.
+
+**Arudha Padas:**
+- A1 (Arudha Lagna) = public image; A7 (Dara Pada) = spouse's standing; A10 (Karma Pada) = career reputation. Planets aspecting the Arudha Lagna shape social projection.
+
+**Upapada & Karakamsha:**
+- `upapada` → UL sign and lord = spouse nature; 2nd from UL = marriage sustenance.
+- `karakamsha` → AK in D9 = deepest spiritual/worldly inclinations. Ishta Devata = 12th from Karakamsha lord.
 
 **Yoga Analysis:**
 - The `yogas` array contains pre-computed yogas. READ and INTERPRET them — do not try to detect yogas manually.
@@ -154,14 +221,15 @@ For other cities, use your knowledge of geography for approximate coordinates.
 - A yoga formed by a debilitated or combust planet is partially broken.
 
 **Timing (Dasha + Transit):**
-- Read `dashas.maha`, `dashas.antar`, `dashas.pratyantar` for current running periods.
-- The Mahadasha lord sets the macro theme. The Antardasha lord modifies it. The Pratyantardasha adds granularity.
+- Read `dashas.maha`, `dashas.antar`, `dashas.pratyantar`, `dashas.sukshma`, `dashas.prana` for current running periods (5 levels available).
+- The Mahadasha lord sets the macro theme. The Antardasha lord modifies it. The Pratyantardasha adds granularity. Sukshma and Prana provide day-level precision.
 - Check both lords' dignity, house placement, and what they rule from the Lagna to determine the quality of the period.
 - Use `dashas.timeline` to reference upcoming Mahadasha transitions.
 - From the transit data: overlay `house_from_lagna` and `house_from_moon` to assess current planetary weather.
 - Check transit `sav_points`: Transits through signs with high SAV points (>= 28) bring easy, fruitful results, while low SAV points (< 25) bring struggles.
 - Check `sade_sati` for Saturn's 7.5-year transit over the Moon.
 - Check `rahu_ketu_axis` for the nodal transit houses — this shows where karmic churning is happening.
+- Use `ashtakavarga.prashtarashtakavarga` for granular analysis of which planets contribute bindus to a transit sign.
 
 ---
 
@@ -200,7 +268,7 @@ A brief, striking summary of their nature. Weave together:
 
 ### 2. The Current Vibe (Dasha + Transit Snapshot)
 What time is it in their life right now? State:
-- Active Mahadasha-Antardasha-Pratyantardasha lords and what they signify
+- Active Mahadasha-Antardasha-Pratyantardasha-Sukshma-Prana lords and what they signify
 - Key transits (especially Saturn, Jupiter, Rahu/Ketu house positions from Lagna and Moon)
 - Whether Sade Sati is active
 - Overall energy of the current period (growth / consolidation / challenge / transformation)
