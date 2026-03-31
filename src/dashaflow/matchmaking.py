@@ -1,5 +1,5 @@
-from constants import ZODIAC_SIGNS, SIGN_LORDS, NATURAL_FRIENDS, NATURAL_ENEMIES, EXALTATION, DEBILITATION, OWN_SIGNS
-from nakshatra import get_nakshatra
+from .constants import ZODIAC_SIGNS, SIGN_LORDS, NATURAL_FRIENDS, NATURAL_ENEMIES, EXALTATION, DEBILITATION, OWN_SIGNS
+from .nakshatra import get_nakshatra
 import math
 
 # --- Data Tables ---

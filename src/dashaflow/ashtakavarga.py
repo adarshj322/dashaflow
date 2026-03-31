@@ -1,4 +1,4 @@
-from constants import ZODIAC_SIGNS
+from .constants import ZODIAC_SIGNS
 
 # 1-indexed houses from the placement of the planet
 ASHTAKAVARGA_TABLES = {

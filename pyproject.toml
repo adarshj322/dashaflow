@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dashaflow"
+dynamic = ["version"]
+description = "Vedic astrology calculation engine — Swiss Ephemeris with Sidereal Lahiri ayanamsha"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Adarsh J" },
+]
+keywords = ["vedic", "astrology", "jyotish", "horoscope", "dashaflow", "vimshottari", "navamsha"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Religion",
+]
+dependencies = [
+    "pyswisseph>=2.10.3",
+    "pytz>=2024.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/adarshj322/dashaflow"
+Repository = "https://github.com/adarshj322/dashaflow"
+Issues = "https://github.com/adarshj322/dashaflow/issues"
+
+[tool.hatch.version]
+path = "src/dashaflow/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dashaflow"]

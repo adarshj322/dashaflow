@@ -1,6 +1,6 @@
 import math
-from constants import TITHI_NAMES, VARA_NAMES, VARA_LORDS, PANCHANG_YOGA_NAMES, KARANA_NAMES
-from nakshatra import get_nakshatra
+from .constants import TITHI_NAMES, VARA_NAMES, VARA_LORDS, PANCHANG_YOGA_NAMES, KARANA_NAMES
+from .nakshatra import get_nakshatra
 
 
 def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):

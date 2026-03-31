@@ -5,7 +5,7 @@ in its sign (excluding Rahu/Ketu) becomes the Atmakaraka (soul significator).
 The 8-karaka scheme is used (includes Rahu as the 8th).
 """
 
-from constants import ZODIAC_SIGNS, SIGN_LORDS
+from .constants import ZODIAC_SIGNS, SIGN_LORDS
 
 KARAKA_NAMES = [
     "Atmakaraka",       # Soul, self (highest degree) — most important planet in chart

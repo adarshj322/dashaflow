@@ -3,15 +3,15 @@ import datetime
 import pytz
 import json
 
-from constants import PLANETS, ZODIAC_SIGNS, SIGN_LORDS, OWN_SIGNS
-from nakshatra import get_nakshatra
-from dasha import calculate_dashas
-from dignity import get_dignity, check_combustion, get_digbala
-from yoga import detect_yogas, detect_kaal_sarpa, detect_graha_yuddha, detect_gandanta
-from panchang import calculate_panchang
-from ashtakavarga import calculate_ashtakavarga
-from jaimini import calculate_jaimini_karakas, calculate_arudha_padas, calculate_upapada, calculate_karakamsha
-from shadbala import calculate_shadbala
+from .constants import PLANETS, ZODIAC_SIGNS, SIGN_LORDS, OWN_SIGNS
+from .nakshatra import get_nakshatra
+from .dasha import calculate_dashas
+from .dignity import get_dignity, check_combustion, get_digbala
+from .yoga import detect_yogas, detect_kaal_sarpa, detect_graha_yuddha, detect_gandanta
+from .panchang import calculate_panchang
+from .ashtakavarga import calculate_ashtakavarga
+from .jaimini import calculate_jaimini_karakas, calculate_arudha_padas, calculate_upapada, calculate_karakamsha
+from .shadbala import calculate_shadbala
 
 swe.set_ephe_path('')
 
@@ -366,7 +366,7 @@ def calculate_avasthas(planets_data, raw_planets):
 
 
 def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, timezone_str: str,
-                          query_date_str: str = None):
+                          query_date_str: str = None, ephe_path: str = ''):
     """
     Calculates a comprehensive Vedic Astrological Chart (Sidereal Lahiri).
 
@@ -378,11 +378,13 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     lon : float    Longitude (e.g., 77.2090 for Delhi)
     timezone_str : str  (e.g., "Asia/Kolkata")
     query_date_str : str, optional  "YYYY-MM-DD" for Dasha lookup. Defaults to today.
+    ephe_path : str, optional  Path to Swiss Ephemeris data files. Defaults to '' (bundled).
 
     Returns
     -------
     dict: Full chart data including planets, nakshatra, dasha, yogas, panchang.
     """
+    swe.set_ephe_path(ephe_path)
     swe.set_sid_mode(swe.SIDM_LAHIRI)
     jd, local_dt = _to_jd(dob_str, time_str, timezone_str)
     flags = swe.FLG_SIDEREAL | swe.FLG_SPEED

@@ -1,4 +1,4 @@
-from constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
+from .constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
 
 
 KENDRA_HOUSES = {1, 4, 7, 10}

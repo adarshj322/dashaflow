@@ -3,7 +3,7 @@ Career Analysis Framework — D10 Dashamsha interpretation
 Uses D10 chart, 10th house analysis, and planetary significations.
 """
 
-from constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
+from .constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
 
 # Planet -> career significations (Jyotish standard)
 CAREER_SIGNIFICATIONS = {

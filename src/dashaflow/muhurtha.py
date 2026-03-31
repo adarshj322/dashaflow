@@ -4,7 +4,7 @@ Evaluates auspiciousness of a given date/time for specific activities.
 Uses Panchang elements, planetary positions, and classical rules.
 """
 
-from constants import ZODIAC_SIGNS, SIGN_LORDS
+from .constants import ZODIAC_SIGNS, SIGN_LORDS
 
 # ==========================================
 # UNIVERSAL AVOIDANCE RULES

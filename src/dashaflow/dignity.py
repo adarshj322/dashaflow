@@ -1,4 +1,4 @@
-from constants import (
+from .constants import (
     EXALTATION, DEBILITATION, OWN_SIGNS, MOOLTRIKONA,
     SIGN_LORDS, NATURAL_FRIENDS, NATURAL_ENEMIES, NATURAL_NEUTRALS,
     COMBUSTION_ORBS, ZODIAC_SIGNS,
@@ -141,7 +141,7 @@ def check_combustion(planet_name, planet_lon, sun_lon, is_retrograde=False):
 
 def get_digbala(planet_name, house):
     """Check if a planet has directional strength in its current house."""
-    from constants import DIGBALA_HOUSES
+    from .constants import DIGBALA_HOUSES
     ideal_house = DIGBALA_HOUSES.get(planet_name)
     if ideal_house is None:
         return False

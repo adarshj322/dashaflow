@@ -11,7 +11,7 @@ Calculates a numerical strength score for each planet based on:
 All values are in Shashtiamshas (60ths of a Rupa). 1 Rupa = 60 Shashtiamshas.
 """
 
-from constants import (
+from .constants import (
     ZODIAC_SIGNS, EXALTATION, DEBILITATION, OWN_SIGNS,
     MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES, NATURAL_NEUTRALS,
     DIGBALA_HOUSES, SIGN_LORDS

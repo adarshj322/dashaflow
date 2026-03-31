@@ -1,6 +1,6 @@
 import datetime
-from constants import VIMSHOTTARI_YEARS, DASHA_SEQUENCE, NAK_SPAN
-from nakshatra import get_nakshatra
+from .constants import VIMSHOTTARI_YEARS, DASHA_SEQUENCE, NAK_SPAN
+from .nakshatra import get_nakshatra
 
 
 def _add_years_days(dt, years, days):
