@@ -91,7 +91,10 @@ def cast_chart(
 
 def cast_transit(
     transit_date: str,
-    natal_chart: dict,
+    dob_str: str,
+    time_str: str,
+    lat: float,
+    lon: float,
     timezone: str = "Asia/Kolkata",
 ) -> dict:
     """
@@ -101,8 +104,14 @@ def cast_transit(
     ----------
     transit_date : str
         Date to compute transits as "YYYY-MM-DD"
-    natal_chart : dict
-        Full dict output from cast_chart()
+    dob_str : str
+        Date of birth as "YYYY-MM-DD"
+    time_str : str
+        Time of birth as "HH:MM" (24-hour)
+    lat : float
+        Birth latitude (-90 to 90)
+    lon : float
+        Birth longitude (-180 to 180)
     timezone : str, optional
         IANA timezone. Defaults to "Asia/Kolkata".
 
@@ -111,6 +120,14 @@ def cast_transit(
     dict
         Transit planets with house positions, SAV points, Sade Sati, Rahu-Ketu axis.
     """
+    validate_birth_input(dob_str, time_str, lat, lon, timezone)
+    natal_chart = calculate_vedic_chart(
+        dob_str=dob_str,
+        time_str=time_str,
+        lat=lat,
+        lon=lon,
+        timezone_str=timezone,
+    )
     return calculate_transit(
         transit_date_str=transit_date,
         natal_chart=natal_chart,

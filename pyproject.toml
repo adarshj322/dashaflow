@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 authors = [
     { name = "Adarsh J" },
 ]
-keywords = ["vedic", "astrology", "jyotish", "horoscope", "dashaflow", "vimshottari", "navamsha"]
+keywords = ["vedic", "astrology", "jyotish", "horoscope", "dashaflow", "vimshottari", "navamsha", "python", "python3", "swiss-ephemeris", "astrology-api", "pypi-package", "birth-chart", "jyotisha", "vedic-astrology", "jyotish-open-source"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

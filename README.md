@@ -26,7 +26,9 @@ print(chart["dashas"]["maha"]["planet"])      # Current Mahadasha lord
 print(chart["yogas"])                         # Detected yogas
 
 # Transits
-transit = dashaflow.cast_transit("2026-03-29", chart)
+transit = dashaflow.cast_transit(
+    "2026-03-29", "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata"
+)
 print(transit["sade_sati"])
 
 # Compatibility (Person 1 = Male, Person 2 = Female)
@@ -52,7 +54,7 @@ print(career["career_themes"])
 | Function | Description |
 |---|---|
 | `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more |
-| `cast_transit(transit_date, natal_chart, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
+| `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
 | `calculate_compatibility(dob1, time1, lat1, lon1, tz1, dob2, time2, lat2, lon2, tz2)` | 36-point Ashtakoot + extended kutas + Kuja Dosha |
 | `check_muhurtha(activity, date, time, lat, lon, timezone)` | Electional astrology for 6 activity types |
 | `analyze_career(dob, time, lat, lon, timezone)` | D10 Dashamsha career analysis with theme recommendations |

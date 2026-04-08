@@ -1310,6 +1310,15 @@ class TestPublicAPI(unittest.TestCase):
         with self.assertRaises(ValueError):
             dashaflow.cast_chart("1990-04-15", "14:30", 28.6139, 77.2090, "Bogus/Zone")
 
+    def test_cast_transit_returns_dict(self):
+        import dashaflow
+        transit = dashaflow.cast_transit(
+            "2026-03-29", "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata"
+        )
+        self.assertIsInstance(transit, dict)
+        self.assertIn("planets", transit)
+        self.assertIn("sade_sati", transit)
+
     def test_version_exists(self):
         import dashaflow
         self.assertIsInstance(dashaflow.__version__, str)
