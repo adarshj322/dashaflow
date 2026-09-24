@@ -2,18 +2,22 @@
 Shadbala — Six-fold Planetary Strength System (BPHS)
 Calculates a numerical strength score for each planet based on:
 1. Sthana Bala (Positional Strength) — Uchcha, Saptavargaja, Ojayugmarasyamsha, Kendra, Drekkana
-2. Dig Bala (Directional Strength) — Based on house position
-3. Kala Bala (Temporal Strength) — Day/night birth, hora lord, etc. (simplified)
-4. Chesta Bala (Motional Strength) — Based on speed/retrograde
+2. Dig Bala (Directional Strength) — Based on house position (linear house-distance model)
+3. Kala Bala (Temporal Strength) — Natonnata + Paksha + Ayana only (Hora, Masa, Varsha,
+   Yuddha, etc. omitted — simplified)
+4. Chesta Bala (Motional Strength) — Based on speed/retrograde (Sun/Moon fixed 30, nodes 0)
 5. Naisargika Bala (Natural Strength) — Fixed hierarchy Sun > Moon > Venus > Jupiter > Mercury > Mars > Saturn
-6. Drik Bala (Aspectual Strength) — Based on aspects received (simplified)
+6. Drik Bala (Aspectual Strength) — BPHS weighted partial aspects, normalized with
+   midpoint 30 into [0, 60] (simplified model)
 
-All values are in Shashtiamshas (60ths of a Rupa). 1 Rupa = 60 Shashtiamshas.
+Simplifications vs classical BPHS are intentional for a lightweight engine and are
+documented per-function. All values are in Shashtiamshas (60ths of a Rupa).
+1 Rupa = 60 Shashtiamshas.
 """
 
 from .constants import (
     ZODIAC_SIGNS, EXALTATION, DEBILITATION, OWN_SIGNS,
-    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES, NATURAL_NEUTRALS,
+    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES,
     DIGBALA_HOUSES, SIGN_LORDS
 )
 import math
@@ -80,6 +84,7 @@ def _saptavargaja_bala(planet_name, dignity, planet_data=None):
     D1 (Rasi), D2 (Hora), D3 (Drekkana), D7 (Saptamsha),
     D9 (Navamsha), D12 (Dwadashamsha), D30 (Trimshamsha).
     Each varga contributes up to 30 points; total is averaged.
+    Missing varga signs fall back to neutral 10.0 (documented simplification).
     """
     dignity_scores = {
         "exalted": 30.0,

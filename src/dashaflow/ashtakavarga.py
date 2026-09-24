@@ -74,25 +74,35 @@ ASHTAKAVARGA_TABLES = {
     }
 }
 
-def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int):
+def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int) -> dict:
     """
     Calculates Sarvashtakavarga (SAV) and Bhinnashtakavarga (BAV).
     planets_in_signs dict maps "Sun", "Moon", etc. to their 0-11 sign index.
-    
+
+    Bindus only (no Shodhana/reduction applied).
+
     Returns a dict with 'sarvashtakavarga' (list of 12 ints mapping to ZODIAC_SIGNS)
     and 'bhinnashtakavarga' mapping each planet to their 12-sign array.
     """
+    if not isinstance(ascendant_sign_idx, int) or not 0 <= ascendant_sign_idx <= 11:
+        raise ValueError(f"Invalid ascendant_sign_idx '{ascendant_sign_idx}'. Expected 0-11.")
+    for _p, _idx in planets_in_signs.items():
+        if not isinstance(_idx, int) or not 0 <= _idx <= 11:
+            raise ValueError(f"Invalid sign index for '{_p}': '{_idx}'. Expected 0-11.")
     # Initialize all BAV arrays with 0
     bav = {p: [0]*12 for p in ASHTAKAVARGA_TABLES.keys()}
     sav = [0]*12
-    
+
     # Extend planets dict with Ascendant for calculation
-    positions = planets_in_signs.copy()
+    positions = dict(planets_in_signs)
     positions["Ascendant"] = ascendant_sign_idx
-    
+
     for target_planet, contributions in ASHTAKAVARGA_TABLES.items():
         for source_point, houses_list in contributions.items():
-            source_idx = positions[source_point]
+            try:
+                source_idx = positions[source_point]
+            except KeyError:
+                raise ValueError(f"Missing '{source_point}' position for Ashtakavarga.") from None
             for h in houses_list:
                 # h is 1-indexed house from the source planet.
                 # So if source is at idx 0 (Aries) and h=1, target sign is 0 (Aries)
@@ -113,7 +123,10 @@ def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int):
     for target_planet, contributions in ASHTAKAVARGA_TABLES.items():
         prashtara[target_planet] = {}
         for source_point, houses_list in contributions.items():
-            source_idx = positions[source_point]
+            try:
+                source_idx = positions[source_point]
+            except KeyError:
+                raise ValueError(f"Missing '{source_point}' position for Ashtakavarga.") from None
             row = [0] * 12
             for h in houses_list:
                 target_sign_idx = (source_idx + (h - 1)) % 12

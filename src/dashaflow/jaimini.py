@@ -1,8 +1,9 @@
 """
 Jaimini Karakas — Chara Karaka System
-Based on BPHS Jaimini Sutras: The planet with the highest degree 
+Based on BPHS Jaimini Sutras: The planet with the highest degree
 in its sign (excluding Rahu/Ketu) becomes the Atmakaraka (soul significator).
-The 8-karaka scheme is used (includes Rahu as the 8th).
+The standard 7-karaka scheme is used here (Rahu excluded; the 8-karaka
+variant counting Rahu is not applied).
 """
 
 from .constants import ZODIAC_SIGNS, SIGN_LORDS
@@ -47,29 +48,38 @@ ARUDHA_NAMES = {
 def calculate_jaimini_karakas(planets_data: dict):
     """
     Calculates the 7 Chara Karakas from the natal chart planet data.
-    
+
+    Standard 7-karaka scheme (Rahu/Ketu excluded). Planets are ordered by
+    degree-in-sign descending; exact ties are broken deterministically by
+    natural planet order (Sun, Moon, Mars, Mercury, Jupiter, Venus, Saturn).
+
     Parameters
     ----------
     planets_data : dict
         The 'planets' dict from calculate_vedic_chart output.
         Each planet entry must have 'degree' (0-30 within sign).
-    
+
     Returns
     -------
     dict with karaka assignments and descriptions.
     """
     # Only the 7 visible planets participate (Rahu/Ketu excluded from standard 7-karaka scheme)
     eligible = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
-    
+    order = {name: i for i, name in enumerate(eligible)}
+
     # Build list of (planet_name, degree_in_sign)
     planet_degrees = []
     for name in eligible:
         if name in planets_data:
-            deg = planets_data[name]["degree"]
+            try:
+                deg = float(planets_data[name]["degree"])
+            except (KeyError, TypeError, ValueError):
+                raise ValueError(f"Missing/invalid 'degree' for planet '{name}'.") from None
             planet_degrees.append((name, deg))
-    
-    # Sort by degree DESCENDING — highest degree = Atmakaraka
-    planet_degrees.sort(key=lambda x: x[1], reverse=True)
+
+    # Sort by degree DESCENDING — highest degree = Atmakaraka.
+    # Tie-break by natural planet order for determinism.
+    planet_degrees.sort(key=lambda x: (-x[1], order.get(x[0], 99)))
     
     karakas = {}
     for i, (planet_name, degree) in enumerate(planet_degrees):

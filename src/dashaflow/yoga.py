@@ -4,6 +4,9 @@ from .constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
 KENDRA_HOUSES = {1, 4, 7, 10}
 TRIKONA_HOUSES = {1, 5, 9}
 DUSTHANA_HOUSES = {6, 8, 12}
+# Natural benefics for yoga purposes. Moon is excluded here (Adhi/Amala use
+# Mercury/Jupiter/Venus only in this simplified engine); waxing-Moon variants
+# are noted in docstrings rather than detected.
 BENEFICS = {"Jupiter", "Venus", "Mercury"}
 MAHAPURUSHA_PLANETS = {"Mars", "Mercury", "Jupiter", "Venus", "Saturn"}
 MAHAPURUSHA_NAMES = {
@@ -38,6 +41,38 @@ def _lord_of_house(lagna_sign_idx, house_num):
     return SIGN_LORDS[ZODIAC_SIGNS[sign_idx]]
 
 
+def _aspects_sign(aspector_name, from_sign_idx, to_sign_idx):
+    """BPHS Parashari aspects: does aspector's sign aspect the target sign?"""
+    diff = (to_sign_idx - from_sign_idx) % 12
+    house = diff + 1
+    if house == 7:
+        return True
+    if aspector_name == "Mars" and house in (4, 8):
+        return True
+    if aspector_name == "Jupiter" and house in (5, 9):
+        return True
+    if aspector_name == "Saturn" and house in (3, 10):
+        return True
+    return False
+
+
+def _kemadruma_cancelled(planets, moon_idx, lagna_idx):
+    """Classical Kemadruma Bhanga: planet in kendra from Moon (excl Sun/nodes),
+    planet conjoined with Moon, or Moon in kendra from Lagna."""
+    for p_name, pd in planets.items():
+        if p_name in ("Sun", "Moon", "Rahu", "Ketu"):
+            continue
+        if "sign_idx" not in pd:
+            continue
+        if pd["sign_idx"] == moon_idx:
+            return f"cancelled — {p_name} conjoined with Moon"
+        if _house_from(moon_idx, pd["sign_idx"]) in KENDRA_HOUSES:
+            return f"cancelled — {p_name} in kendra from Moon"
+    if _house_from(lagna_idx, moon_idx) in KENDRA_HOUSES:
+        return "cancelled — Moon in kendra from Lagna"
+    return None
+
+
 def _is_exalted_or_own(planet_name, sign):
     if planet_name in EXALTATION and EXALTATION[planet_name][0] == sign:
         return True
@@ -67,26 +102,47 @@ def detect_yogas(planets, lagna_sign):
     moon_idx = moon_data.get("sign_idx", 0)
 
     # --- Pancha Mahapurusha Yogas ---
+    # Classical requirement: own/exalted planet in kendra, ideally unafflicted.
+    # Retrograde/combust planets still form the yoga but deliver weakened results,
+    # so we report the yoga with a weakness note instead of suppressing it.
     for p in MAHAPURUSHA_PLANETS:
         pd = planets.get(p)
         if not pd:
             continue
         if pd.get("house") in KENDRA_HOUSES and _is_exalted_or_own(p, pd["sign"]):
+            notes = []
+            if pd.get("is_retrograde"):
+                notes.append("retrograde — results delayed/unconventional")
+            if pd.get("is_combust"):
+                notes.append("combust — weakened")
+            desc = f"{p} in own/exalted sign in house {pd['house']} from Lagna."
+            if notes:
+                desc += " Note: " + "; ".join(notes) + "."
             yogas.append({
                 "name": MAHAPURUSHA_NAMES[p],
                 "formed_by": [p],
-                "description": f"{p} in own/exalted sign in house {pd['house']} from Lagna.",
+                "description": desc,
             })
 
     # --- Gajakesari Yoga: Jupiter in kendra from Moon ---
+    # Classical texts require unafflicted, strong Jupiter; a debilitated or
+    # combust Jupiter forms a weakened yoga, reported with a note.
     jup = planets.get("Jupiter")
-    if jup and moon_data:
+    if jup and moon_data and "sign_idx" in jup and "sign_idx" in moon_data:
         house_from_moon = _house_from(moon_idx, jup["sign_idx"])
         if house_from_moon in KENDRA_HOUSES:
+            desc = f"Jupiter in house {house_from_moon} from Moon (kendra)."
+            weak = []
+            if jup.get("dignity") == "debilitated":
+                weak.append("Jupiter debilitated — yoga weakened")
+            if jup.get("is_combust"):
+                weak.append("Jupiter combust — yoga weakened")
+            if weak:
+                desc += " Note: " + "; ".join(weak) + "."
             yogas.append({
                 "name": "Gajakesari Yoga",
                 "formed_by": ["Jupiter", "Moon"],
-                "description": f"Jupiter in house {house_from_moon} from Moon (kendra).",
+                "description": desc,
             })
 
     # --- Budhaditya Yoga: Sun + Mercury in same sign ---
@@ -110,22 +166,26 @@ def detect_yogas(planets, lagna_sign):
         })
 
     # --- Kemadruma Yoga: No planet in 2nd or 12th from Moon ---
-    if moon_data:
+    # With classical Bhanga (cancellation): kendra planet from Moon, conjunction
+    # with Moon, or Moon in kendra from Lagna nullifies the dosha.
+    if moon_data and "sign_idx" in moon_data:
         sign_2nd = (moon_idx + 1) % 12
         sign_12th = (moon_idx - 1) % 12
         has_support = False
         for p_name, pd in planets.items():
             if p_name in ("Sun", "Moon", "Rahu", "Ketu"):
                 continue
-            if pd["sign_idx"] in (sign_2nd, sign_12th):
+            if pd.get("sign_idx") in (sign_2nd, sign_12th):
                 has_support = True
                 break
         if not has_support:
-            yogas.append({
-                "name": "Kemadruma Yoga",
-                "formed_by": ["Moon"],
-                "description": "No planet (except Sun/nodes) in 2nd or 12th from Moon.",
-            })
+            cancellation = _kemadruma_cancelled(planets, moon_idx, lagna_idx)
+            if cancellation is None:
+                yogas.append({
+                    "name": "Kemadruma Yoga",
+                    "formed_by": ["Moon"],
+                    "description": "No planet (except Sun/nodes) in 2nd or 12th from Moon.",
+                })
 
     # --- Adhi Yoga: Benefics in 6th, 7th, 8th from Moon ---
     if moon_data:
@@ -168,11 +228,23 @@ def detect_yogas(planets, lagna_sign):
         for tl in pure_trikona:
             kl_data = planets.get(kl)
             tl_data = planets.get(tl)
-            if kl_data and tl_data and kl_data["sign"] == tl_data["sign"]:
+            if not kl_data or not tl_data:
+                continue
+            if "sign_idx" not in kl_data or "sign_idx" not in tl_data:
+                continue
+            if kl_data["sign"] == tl_data["sign"]:
                 yogas.append({
                     "name": "Raj Yoga",
                     "formed_by": [kl, tl],
                     "description": f"Kendra lord {kl} conjoined with trikona lord {tl} in {kl_data['sign']}.",
+                })
+            # Sambandha via mutual BPHS aspect also forms Raj Yoga (weaker).
+            elif (_aspects_sign(kl, kl_data["sign_idx"], tl_data["sign_idx"]) or
+                    _aspects_sign(tl, tl_data["sign_idx"], kl_data["sign_idx"])):
+                yogas.append({
+                    "name": "Raj Yoga (by aspect)",
+                    "formed_by": [kl, tl],
+                    "description": f"Kendra lord {kl} aspects trikona lord {tl} — sambandha Raj Yoga.",
                 })
 
     # --- Viparita Raj Yoga: Lord of 6/8/12 in another dusthana ---
@@ -218,9 +290,26 @@ def detect_yogas(planets, lagna_sign):
                     if el_data.get("house") in KENDRA_HOUSES:
                         cancellation = True
                         cancel_reason = f"Lord of exaltation sign ({exalt_lord}) in kendra from Lagna."
-                    elif moon_data and _house_from(moon_idx, el_data["sign_idx"]) in KENDRA_HOUSES:
+                    elif moon_data and "sign_idx" in el_data and _house_from(moon_idx, el_data["sign_idx"]) in KENDRA_HOUSES:
                         cancellation = True
                         cancel_reason = f"Lord of exaltation sign ({exalt_lord}) in kendra from Moon."
+
+        # Additional classical cancellation: dispositor or exaltation lord
+        # aspects the debilitated planet (BPHS sambandha).
+        if not cancellation and "sign_idx" in pd:
+            aspectors = set()
+            if dispositor:
+                aspectors.add(dispositor)
+            if p_name in EXALTATION:
+                ex_lord = SIGN_LORDS.get(EXALTATION[p_name][0])
+                if ex_lord:
+                    aspectors.add(ex_lord)
+            for aspector_name in aspectors:
+                ad = planets.get(aspector_name)
+                if ad and "sign_idx" in ad and _aspects_sign(aspector_name, ad["sign_idx"], pd["sign_idx"]):
+                    cancellation = True
+                    cancel_reason = f"{aspector_name} aspects debilitated {p_name} (sambandha)."
+                    break
 
         if cancellation:
             yogas.append({
@@ -405,35 +494,50 @@ def detect_yogas(planets, lagna_sign):
 def detect_kaal_sarpa(raw_planets):
     """
     Detect Kaal Sarpa Dosha: all 7 planets hemmed between Rahu-Ketu axis.
-    
+
+    Uses absolute longitudes (not just signs): a planet sharing the node's
+    sign but outside the nodal arc no longer breaks detection incorrectly.
+
     Parameters
     ----------
-    raw_planets : dict — raw planet data with 'sign_idx' for each planet
-    
+    raw_planets : dict — raw planet data with 'lon' for each planet
+
     Returns
     -------
     dict or None — dosha details if present, None otherwise
     """
-    rahu_idx = raw_planets["Rahu"]["sign_idx"]
-    ketu_idx = raw_planets["Ketu"]["sign_idx"]
-    
+    try:
+        rahu_lon = raw_planets["Rahu"]["lon"] % 360.0
+        ketu_lon = raw_planets["Ketu"]["lon"] % 360.0
+    except KeyError as exc:
+        raise ValueError(f"Missing nodal data for Kaal Sarpa check: {exc}") from exc
+    rahu_idx = raw_planets["Rahu"].get("sign_idx", int(rahu_lon // 30) % 12)
+    ketu_idx = raw_planets["Ketu"].get("sign_idx", int(ketu_lon // 30) % 12)
+
     # The 7 planets (Sun through Saturn) must all be on one side of the Rahu-Ketu axis
     seven = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
-    
-    # Check if all planets fall in the arc from Rahu to Ketu (going forward)
-    def _in_arc(planet_idx, start_idx, end_idx):
-        """Check if planet_idx is in the arc from start_idx to end_idx (exclusive of nodes)."""
-        if start_idx == end_idx:
+
+    def _lon_in_arc(planet_lon, start_lon, end_lon):
+        """True if planet_lon lies strictly in the forward arc start→end."""
+        p = planet_lon % 360.0
+        s = start_lon % 360.0
+        e = end_lon % 360.0
+        if s == e:
             return False
-        if start_idx < end_idx:
-            return start_idx < planet_idx < end_idx
-        else:  # wraps around
-            return planet_idx > start_idx or planet_idx < end_idx
+        if s < e:
+            return s < p < e
+        return p > s or p < e
+
+    def _planet_lon(name):
+        try:
+            return raw_planets[name]["lon"] % 360.0
+        except KeyError:
+            raise ValueError(f"Missing planet '{name}' for Kaal Sarpa check.") from None
     
     # Arc from Rahu to Ketu
-    all_rahu_to_ketu = all(_in_arc(raw_planets[p]["sign_idx"], rahu_idx, ketu_idx) for p in seven)
+    all_rahu_to_ketu = all(_lon_in_arc(_planet_lon(p), rahu_lon, ketu_lon) for p in seven)
     # Arc from Ketu to Rahu
-    all_ketu_to_rahu = all(_in_arc(raw_planets[p]["sign_idx"], ketu_idx, rahu_idx) for p in seven)
+    all_ketu_to_rahu = all(_lon_in_arc(_planet_lon(p), ketu_lon, rahu_lon) for p in seven)
     
     if all_rahu_to_ketu or all_ketu_to_rahu:
         # Determine type: Ascending (Rahu leads) or Descending (Ketu leads)
@@ -451,8 +555,8 @@ def detect_kaal_sarpa(raw_planets):
         }
     
     # Check partial Kaal Sarpa (one planet outside — still significant)
-    for direction, checker in [("Rahu→Ketu", lambda p: _in_arc(raw_planets[p]["sign_idx"], rahu_idx, ketu_idx)),
-                                ("Ketu→Rahu", lambda p: _in_arc(raw_planets[p]["sign_idx"], ketu_idx, rahu_idx))]:
+    for checker in [lambda p: _lon_in_arc(_planet_lon(p), rahu_lon, ketu_lon),
+                    lambda p: _lon_in_arc(_planet_lon(p), ketu_lon, rahu_lon)]:
         outside = [p for p in seven if not checker(p)]
         if len(outside) == 1:
             return {
@@ -470,31 +574,38 @@ def detect_graha_yuddha(raw_planets):
     """
     Detect Planetary War (Graha Yuddha): two planets within 1° of each other.
     Only applies to Mars, Mercury, Jupiter, Venus, Saturn (not Sun, Moon, Rahu, Ketu).
-    The planet with higher longitude wins; the loser is weakened.
-    
+    Winner = higher ecliptic latitude (more northerly); ties fall back to
+    classical brightness order Venus > Jupiter > Mercury > Saturn > Mars.
+
     Returns
     -------
     list of dict — each war detected
     """
     war_planets = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"]
+    # Classical brightness/size precedence for tie-breaks.
+    _BRIGHTNESS = {"Venus": 5, "Jupiter": 4, "Mercury": 3, "Saturn": 2, "Mars": 1}
     wars = []
-    
+
     for i in range(len(war_planets)):
         for j in range(i + 1, len(war_planets)):
             p1, p2 = war_planets[i], war_planets[j]
             lon1 = raw_planets[p1]["lon"]
             lon2 = raw_planets[p2]["lon"]
-            
+
             # Angular separation (handle wrap-around at 360°)
             diff = abs(lon1 - lon2)
             if diff > 180:
                 diff = 360 - diff
-            
+
             if diff <= 1.0:
-                # Planet with higher latitude wins (simplified: brighter/larger planet wins)
-                # Traditional: planet with higher longitude in the same sign wins
-                # Simplified: we report both and let interpretation handle it
-                winner = p1 if lon1 > lon2 else p2
+                lat1 = raw_planets[p1].get("lat")
+                lat2 = raw_planets[p2].get("lat")
+                if lat1 is not None and lat2 is not None and abs(lat1 - lat2) > 1e-9:
+                    winner = p1 if lat1 > lat2 else p2
+                    method = "higher latitude"
+                else:
+                    winner = p1 if _BRIGHTNESS.get(p1, 0) >= _BRIGHTNESS.get(p2, 0) else p2
+                    method = "brightness precedence (latitude unavailable/tied)"
                 loser = p2 if winner == p1 else p1
                 wars.append({
                     "planet1": p1,
@@ -502,9 +613,10 @@ def detect_graha_yuddha(raw_planets):
                     "separation_degrees": round(diff, 4),
                     "winner": winner,
                     "loser": loser,
-                    "description": f"{p1} and {p2} in planetary war ({diff:.2f}° apart) — {loser} is weakened, {winner} gains strength.",
+                    "decision": method,
+                    "description": f"{p1} and {p2} in planetary war ({diff:.2f}° apart) — {loser} is weakened, {winner} gains strength ({method}).",
                 })
-    
+
     return wars
 
 
