@@ -1,6 +1,12 @@
+"""
+Ashtakoot compatibility (36-point Guna Milan) + extended kutas and Kuja Dosha.
+
+Core 8 kutas return numeric scores; extended kutas (Mahendra, Stree Deergha,
+Vedha, Rajju, Bad Constellations, Lagna-House7, Sex Energy) return verdict
+dicts/strings as documented per function.
+"""
 from .constants import ZODIAC_SIGNS, SIGN_LORDS, NATURAL_FRIENDS, NATURAL_ENEMIES, EXALTATION, DEBILITATION, OWN_SIGNS
 from .nakshatra import get_nakshatra
-import math
 
 # --- Data Tables ---
 # 0-26 indexed Nakshatras
