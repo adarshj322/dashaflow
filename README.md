@@ -36,7 +36,7 @@ compat = dashaflow.calculate_compatibility(
     "1990-04-15", "14:30", 28.61, 77.21, "Asia/Kolkata",
     "1992-08-20", "09:15", 19.07, 72.87, "Asia/Kolkata",
 )
-print(f"Score: {compat['total']}/36")
+print(f"Score: {compat['total_score']}/36")
 
 # Muhurtha (electional astrology)
 muhurtha = dashaflow.check_muhurtha("marriage", "2026-11-15", "10:30", 28.61, 77.21, "Asia/Kolkata")
@@ -135,18 +135,38 @@ All calculations use **Lahiri (Chitrapaksha)** — the official standard of the 
 
 ## Extended Ephemeris
 
-The bundled Swiss Ephemeris files cover ~1800–2400 AD. For historical or far-future charts, download additional `.se1` files from [astro.com](https://www.astro.com/swisseph/) and pass the path:
+The bundled Swiss Ephemeris data covers ~1800–2400 AD at full accuracy. Births outside that range still compute via the Moshier analytic fallback, and the chart flags it honestly in `metadata["ephemeris_accuracy"]` (plus a log warning). For full historical/far-future accuracy, download additional `.se1` files from [astro.com](https://www.astro.com/swisseph/) and pass the path:
 
 ```python
 chart = dashaflow.cast_chart("1200-03-10", "12:00", 28.61, 77.21, "Asia/Kolkata",
                               ephe_path="/path/to/extended/ephemeris")
 ```
 
+## Production Use
+
+- **Thread-safety:** chart and transit calculations hold a process-wide lock around all Swiss Ephemeris calls — safe to call from threaded web servers (verified by an 8-way concurrency test). The locked section is ~10 ephemeris calls (milliseconds).
+- **Errors:** `dashaflow.errors` defines `DashaFlowError`, `InvalidInputError` (a `ValueError`, so existing handlers keep working), `EphemerisError`, and `CalculationError`. Every chart passes an output-contract gate (required keys, planet fields, SAV=337 invariant) before it is returned.
+- **Observability:** standard `logging` loggers (`dashaflow.vedic_calculator`, …) emit debug timings; each chart's `metadata` carries `dashaflow_version`, `swe_version`, `ephemeris`, `ephemeris_accuracy`, and `computed_at_utc`.
+- **Determinism:** pass explicit `query_date` / `transit_date` for reproducible outputs (omitted dates default to today and are debug-logged).
+
 ## References
 
 - *Brihat Parashara Hora Shastra* — foundational text for Vedic astrology
 - *Hindu Predictive Astrology* — B.V. Raman
 - [Swiss Ephemeris](https://www.astro.com/swisseph/) — high-precision astronomical computation
+
+## Limitations & Simplifications
+
+This engine favors a lightweight, dependency-free design over exhaustive classical detail:
+
+- **Vimshottari Dasha** uses the sidereal year (365.2563 days); sub-period boundaries keep full datetime precision internally but start/end strings remain date-only.
+- **Kemadruma Yoga** applies classical Bhanga (cancellation by kendra planet from Moon, conjunction with Moon, or Moon in kendra from Lagna) — cancelled cases are not listed.
+- **Raj Yoga** covers conjunction + dual lordship + aspect-sambandha; exchange-based (Parivartana) Raja effects are reported separately as Parivartana Yoga.
+- **Neecha Bhanga** covers dispositor/exaltation-lord kendra placement plus aspect-sambandha; further classical variants (e.g. vargottama, mutual debilitation aspect) are not modeled.
+- **Graha Yuddha** winner = higher ecliptic latitude, falling back to brightness precedence (Venus > Jupiter > Mercury > Saturn > Mars) when latitudes tie or are unavailable.
+- **Kaal Sarpa** uses absolute longitudes (not sign-only); near-misses with one planet outside are reported as Partial.
+- **Shadbala** implements Uchcha/Saptavargaja/Ojayugma/Kendra/Drekkana + linear Dig Bala + Natonnata/Paksha/Ayana Kala Bala + speed-based Chesta Bala + fixed Naisargika Bala + midpoint-normalized Drik Bala. Hora/Masa/Varsha Bala and Shodhana reductions are omitted.
+- **Bhava Chalit** is the equal-house system from the Lagna midpoint (not Sripati/Bhava-Sandhi).
 
 ## License
 
