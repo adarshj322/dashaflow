@@ -16,7 +16,8 @@ Quick start::
 """
 
 from ._version import __version__
-from ._validation import validate_birth_input
+from .errors import CalculationError, DashaFlowError, EphemerisError, InvalidInputError
+from ._validation import validate_birth_input, validate_query_date, validate_ephe_path
 from .vedic_calculator import calculate_vedic_chart, calculate_transit
 from .matchmaking import calculate_ashtakoot, calc_kuja_dosha, match_kuja_dosha
 from .muhurtha import evaluate_muhurtha, ACTIVITY_RULES
@@ -25,6 +26,10 @@ from .constants import ZODIAC_SIGNS
 
 __all__ = [
     "__version__",
+    "DashaFlowError",
+    "InvalidInputError",
+    "EphemerisError",
+    "CalculationError",
     "cast_chart",
     "cast_transit",
     "calculate_compatibility",
@@ -78,6 +83,8 @@ def cast_chart(
         If any input parameter is invalid.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
+    validate_query_date(query_date, "query_date")
+    validate_ephe_path(ephe_path)
     return calculate_vedic_chart(
         dob_str=dob,
         time_str=time,
@@ -121,6 +128,7 @@ def cast_transit(
         Transit planets with house positions, SAV points, Sade Sati, Rahu-Ketu axis.
     """
     validate_birth_input(dob_str, time_str, lat, lon, timezone)
+    validate_query_date(transit_date, "transit_date")
     natal_chart = calculate_vedic_chart(
         dob_str=dob_str,
         time_str=time_str,
