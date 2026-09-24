@@ -9,6 +9,10 @@ build/
 *.so
 *.whl
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 .tox/
 .venv/
 venv/
