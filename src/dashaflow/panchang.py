@@ -6,7 +6,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
+def calculate_panchang(jd: float, sun_lon: float, moon_lon: float, lat=None, lon=None) -> dict:
     """
     Calculate the five Panchang elements for a given moment.
 
@@ -54,7 +54,6 @@ def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
             # Sunrise correction is best-effort (ephemeris gaps, polar edge
             # cases); fall back to civil-day vara rather than failing the chart.
             logger.debug("sunrise vara correction skipped: %s", exc)
-            pass
 
     # JD 0 = Monday (Julian proleptic). Map: 0=Mon,1=Tue,...6=Sun
     vara = VARA_NAMES[day_idx]

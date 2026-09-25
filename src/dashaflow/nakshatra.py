@@ -1,7 +1,7 @@
 from .constants import NAKSHATRAS, NAK_SPAN, PADA_SPAN
 
 
-def get_nakshatra(longitude):
+def get_nakshatra(longitude: float) -> dict:
     """
     Returns Nakshatra details for a given sidereal longitude (0-360).
     """
