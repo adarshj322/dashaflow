@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 SIDEREAL_YEAR_DAYS = 365.2563
 
 
-def _build_sub_periods(start_dt, total_days, starting_lord):
+def _build_sub_periods(start_dt, total_days: float, starting_lord: str) -> list:
     """
     Build sub-periods (Antardasha or Pratyantardasha) within a parent period.
     The sub-period sequence starts from the parent lord and cycles through
@@ -46,7 +46,7 @@ def _build_sub_periods(start_dt, total_days, starting_lord):
     return periods
 
 
-def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
+def calculate_dashas(moon_longitude: float, birth_dt, query_dt=None) -> dict:
     """
     Compute Vimshottari Dasha timeline from Moon's sidereal longitude at birth.
 
@@ -61,7 +61,9 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
 
     Returns
     -------
-    dict with keys: maha, antar, pratyantar, timeline
+    dict with keys: maha, antar, pratyantar, sukshma, prana, timeline.
+    Active levels are None when the query predates birth or falls beyond
+    the ~120-year span.
 
     Notes
     -----
@@ -77,8 +79,8 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
     if not isinstance(birth_dt, datetime.datetime):
         raise ValueError("birth_dt must be a datetime.datetime.")
     if query_dt is None:
-        logger.debug("query_dt omitted; defaulting to now (non-deterministic across days)")
-        query_dt = datetime.datetime.now()
+        logger.debug("query_dt omitted; defaulting to today at noon (stable within a day)")
+        query_dt = datetime.datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
     if not isinstance(query_dt, datetime.datetime):
         raise ValueError("query_dt must be a datetime.datetime.")
     if hasattr(birth_dt, 'tzinfo') and birth_dt.tzinfo:
@@ -104,7 +106,10 @@ def calculate_dashas(moon_longitude, birth_dt, query_dt=None):
     nak_info = get_nakshatra(moon_longitude)
     nak_lord = nak_info["lord"]
 
-    elapsed_fraction = nak_info["degree_in_nakshatra"] / NAK_SPAN
+    # Balance from the UNROUNDED longitude: get_nakshatra() rounds
+    # degree_in_nakshatra to 4dp (~1h error), so recompute exactly here.
+    nak_idx = int((moon_longitude % 360.0) / NAK_SPAN)
+    elapsed_fraction = ((moon_longitude % 360.0) - nak_idx * NAK_SPAN) / NAK_SPAN
     remaining_fraction = 1.0 - elapsed_fraction
 
     seq_start = DASHA_SEQUENCE.index(nak_lord)

@@ -5,10 +5,13 @@ from .constants import (
 )
 
 
-def get_dignity(planet_name, sign, degree_in_sign, planets_in_signs=None):
+def get_dignity(planet_name: str, sign: str, degree_in_sign: float, planets_in_signs=None) -> str:
     """
     Determine a planet's dignity in a given sign per BPHS.
-    Returns one of: exalted, mooltrikona, own_sign, friend, neutral, enemy, debilitated.
+    Without planets_in_signs: exalted, mooltrikona, own_sign, friend,
+    neutral, enemy, debilitated (natural relationship with the sign lord).
+    With planets_in_signs: Panchadha-Maitri compound grades — great_friend,
+    friend, neutral, enemy, great_enemy ( dignity + temporary friendship).
     Rahu/Ketu get a simplified check (exalt/debilit/own or neutral).
     """
     if planet_name in EXALTATION and EXALTATION[planet_name][0] == sign:
@@ -50,7 +53,7 @@ def get_dignity(planet_name, sign, degree_in_sign, planets_in_signs=None):
     return "neutral"
 
 
-def get_compound_relationship(planet_name, sign, planets_in_signs):
+def get_compound_relationship(planet_name: str, sign: str, planets_in_signs: dict) -> str:
     """
     Compute Panchadha Maitri (5-fold compound relationship).
     Combines natural relationship with temporary friendship.
@@ -115,7 +118,7 @@ def _combine_relationships(natural, is_temp_friend):
     return "neutral"
 
 
-def check_combustion(planet_name, planet_lon, sun_lon, is_retrograde=False):
+def check_combustion(planet_name: str, planet_lon: float, sun_lon: float, is_retrograde: bool = False) -> bool:
     """
     Check if a planet is combust (too close to the Sun).
     Sun, Rahu, Ketu cannot be combust.
@@ -139,7 +142,7 @@ def check_combustion(planet_name, planet_lon, sun_lon, is_retrograde=False):
     return angular_dist <= orb
 
 
-def get_digbala(planet_name, house):
+def get_digbala(planet_name: str, house: int) -> bool:
     """Check if a planet has directional strength in its current house."""
     from .constants import DIGBALA_HOUSES
     ideal_house = DIGBALA_HOUSES.get(planet_name)

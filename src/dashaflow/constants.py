@@ -209,6 +209,13 @@ KARANA_NAMES = [
 ]
 
 # ==========================================
+# HOUSE GROUPS (1-indexed whole-sign houses from Lagna)
+# ==========================================
+KENDRA_HOUSES = {1, 4, 7, 10}
+TRIKONA_HOUSES = {1, 5, 9}
+DUSTHANA_HOUSES = {6, 8, 12}
+
+# ==========================================
 # DIGBALA (directional strength)
 # Houses where planets gain Digbala (1-indexed)
 # ==========================================

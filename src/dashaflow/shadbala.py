@@ -90,9 +90,13 @@ def _saptavargaja_bala(planet_name, dignity, planet_data=None):
         "exalted": 30.0,
         "mooltrikona": 22.5,
         "own_sign": 20.0,
+        # Panchadha-Maitri grades produced by get_dignity() map onto the
+        # classical friend/enemy bands (great_friend counts as friend, etc.).
+        "great_friend": 15.0,
         "friend": 15.0,
         "neutral": 10.0,
         "enemy": 5.0,
+        "great_enemy": 5.0,
         "debilitated": 2.0,
     }
     d1_score = dignity_scores.get(dignity, 10.0)
@@ -290,7 +294,7 @@ def _chesta_bala(planet_name, speed, is_retrograde):
         return 45.0  # near-stationary
     # Scale linearly: 0 speed → 45, avg speed → 30, 2x avg → 15
     ratio = min(abs_speed / avg, 2.0)
-    return round(60.0 - ratio * 15.0, 2)
+    return round(45.0 - ratio * 15.0, 2)
 
 
 # ============================================================

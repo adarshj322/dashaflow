@@ -1,28 +1,37 @@
-import swisseph as swe
 import datetime
 import logging
+import math
 import threading
 import time
+
 import pytz
+import swisseph as swe
 
 from ._version import __version__
-from .constants import PLANETS, ZODIAC_SIGNS, OWN_SIGNS
-from .errors import CalculationError, EphemerisError, InvalidInputError
-from .nakshatra import get_nakshatra
-from .dasha import calculate_dashas
-from .dignity import get_dignity, check_combustion, get_digbala
-from .yoga import detect_yogas, detect_kaal_sarpa, detect_graha_yuddha, detect_gandanta
-from .panchang import calculate_panchang
 from .ashtakavarga import calculate_ashtakavarga
-from .jaimini import calculate_jaimini_karakas, calculate_arudha_padas, calculate_upapada, calculate_karakamsha
+from .constants import PLANETS, ZODIAC_SIGNS
+from .dasha import calculate_dashas
+from .dignity import check_combustion, get_digbala, get_dignity
+from .errors import CalculationError, EphemerisError, InvalidInputError
+from .jaimini import (
+    calculate_arudha_padas,
+    calculate_jaimini_karakas,
+    calculate_karakamsha,
+    calculate_upapada,
+)
+from .nakshatra import get_nakshatra
+from .panchang import calculate_panchang
 from .shadbala import calculate_shadbala
+from .yoga import detect_gandanta, detect_graha_yuddha, detect_kaal_sarpa, detect_yogas
 
 logger = logging.getLogger(__name__)
 
-# Swiss Ephemeris uses process-global state (ephe path + sidereal mode) and
-# its calc entry points are affected by it. A single re-entrant lock guards
-# the whole configure→compute section so concurrent chart calculations (or
-# host-app swe users) cannot interleave configuration with computation.
+# Swiss Ephemeris uses process-global state (ephe path + sidereal mode,
+# topocentric location) and its calc entry points are affected by it. A single
+# re-entrant lock guards the whole configure→compute section so concurrent
+# DashaFlow calculations cannot interleave configuration with computation.
+# Note: this protects DashaFlow entry points from each other only — host-app
+# code calling swe.* directly does not acquire this lock and can still race.
 # Throughput note: the locked section is ~10 swe calls (milliseconds); pure
 # Python enrichment runs outside the lock.
 _SWE_LOCK = threading.RLock()
@@ -56,14 +65,14 @@ def get_sign_and_degree(longitude: float) -> tuple:
     return ZODIAC_SIGNS[sign_idx], round(degree, 2), sign_idx
 
 
-def calculate_navamsha(longitude):
+def calculate_navamsha(longitude: float) -> str:
     """Calculates D9 (Navamsha) sign based on absolute longitude."""
     navamsha_absolute = (longitude * 9) % 360
     sign_idx = int(navamsha_absolute / 30)
     return ZODIAC_SIGNS[sign_idx]
 
 
-def calculate_d2_hora(longitude):
+def calculate_d2_hora(longitude: float) -> str:
     """Calculates D2 (Hora) sign — Wealth.
     Odd signs: 0-15° → Leo, 15-30° → Cancer.
     Even signs: 0-15° → Cancer, 15-30° → Leo.
@@ -77,7 +86,7 @@ def calculate_d2_hora(longitude):
         return "Cancer" if degree < 15 else "Leo"
 
 
-def calculate_dashamsha(longitude):
+def calculate_dashamsha(longitude: float) -> str:
     """Calculates D10 (Dashamsha) sign per BPHS Parashari method."""
     sign_idx = int(longitude / 30)
     degree_in_sign = longitude % 30
@@ -90,7 +99,7 @@ def calculate_dashamsha(longitude):
 
     return ZODIAC_SIGNS[d10_idx]
 
-def calculate_d3_drekkana(longitude):
+def calculate_d3_drekkana(longitude: float) -> str:
     """Calculates D3 (Drekkana) sign."""
     sign_idx = int(longitude / 30)
     degree = longitude % 30
@@ -103,7 +112,7 @@ def calculate_d3_drekkana(longitude):
         d3_idx = (sign_idx + 8) % 12
     return ZODIAC_SIGNS[d3_idx]
 
-def calculate_d4_chaturthamsha(longitude):
+def calculate_d4_chaturthamsha(longitude: float) -> str:
     """Calculates D4 (Chaturthamsha) sign."""
     sign_idx = int(longitude / 30)
     degree = longitude % 30
@@ -111,7 +120,7 @@ def calculate_d4_chaturthamsha(longitude):
     d4_idx = (sign_idx + (part * 3)) % 12
     return ZODIAC_SIGNS[d4_idx]
 
-def calculate_d7_saptamsha(longitude):
+def calculate_d7_saptamsha(longitude: float) -> str:
     """Calculates D7 (Saptamsha) sign."""
     sign_idx = int(longitude / 30)
     degree = longitude % 30
@@ -122,7 +131,7 @@ def calculate_d7_saptamsha(longitude):
         d7_idx = (sign_idx + 6 + part) % 12
     return ZODIAC_SIGNS[d7_idx]
 
-def calculate_d12_dwadashamsha(longitude):
+def calculate_d12_dwadashamsha(longitude: float) -> str:
     """Calculates D12 (Dwadashamsha) sign."""
     sign_idx = int(longitude / 30)
     degree = longitude % 30
@@ -131,7 +140,7 @@ def calculate_d12_dwadashamsha(longitude):
     return ZODIAC_SIGNS[d12_idx]
 
 
-def calculate_d16_shodashamsha(longitude):
+def calculate_d16_shodashamsha(longitude: float) -> str:
     """Calculates D16 (Shodashamsha) sign — Vehicles, Comforts, Happiness.
     16 equal parts of 1.875° each.
     Start sign = (sign_idx * 4) % 12 counted from Aries.
@@ -146,7 +155,7 @@ def calculate_d16_shodashamsha(longitude):
     return ZODIAC_SIGNS[d16_idx]
 
 
-def calculate_d20_vimshamsha(longitude):
+def calculate_d20_vimshamsha(longitude: float) -> str:
     """Calculates D20 (Vimshamsha) sign — Spiritual Progress, Worship.
     20 equal parts of 1.5° each.
     Start sign = (sign_idx * 8) % 12 counted from Aries.
@@ -161,7 +170,7 @@ def calculate_d20_vimshamsha(longitude):
     return ZODIAC_SIGNS[d20_idx]
 
 
-def calculate_d27_bhamsha(longitude):
+def calculate_d27_bhamsha(longitude: float) -> str:
     """Calculates D27 (Bhamsha / Saptavimshamsha) sign — Strength, Courage.
     27 equal parts of ~1.1111° each.
     Fire signs (Aries,Leo,Sag) start from Aries.
@@ -187,7 +196,7 @@ def calculate_d27_bhamsha(longitude):
     d27_idx = (start_idx + part) % 12
     return ZODIAC_SIGNS[d27_idx]
 
-def calculate_d24_chaturvimshamsha(longitude):
+def calculate_d24_chaturvimshamsha(longitude: float) -> str:
     """Calculates D24 (Chaturvimshamsha / Siddhamsha) sign — Education & Learning.
     Odd signs: count from Leo. Even signs: count from Cancer."""
     sign_idx = int(longitude / 30)
@@ -199,33 +208,45 @@ def calculate_d24_chaturvimshamsha(longitude):
         d24_idx = (3 + part) % 12  # Cancer = index 3
     return ZODIAC_SIGNS[d24_idx]
 
-def calculate_d30_trimshamsha(longitude):
+def calculate_d30_trimshamsha(longitude: float) -> str:
     """Calculates D30 (Trimshamsha) sign — Misfortunes & Diseases.
     Uses the BPHS unequal division: 5°, 5°, 8°, 7°, 5° for odd signs
-    and reversed for even signs."""
+    and reversed for even signs. Each segment maps to a FIXED sign
+    (not the lord's first own sign)."""
     sign_idx = int(longitude / 30)
     degree = longitude % 30
     is_odd = (sign_idx + 1) % 2 != 0
 
     if is_odd:
-        # Odd: Mars(5), Saturn(5), Jupiter(8), Mercury(7), Venus(5)
-        if degree < 5: lord = "Mars"
-        elif degree < 10: lord = "Saturn"
-        elif degree < 18: lord = "Jupiter"
-        elif degree < 25: lord = "Mercury"
-        else: lord = "Venus"
+        # Odd: Mars 0-5 → Aries, Saturn 5-10 → Aquarius,
+        # Jupiter 10-18 → Sagittarius, Mercury 18-25 → Gemini,
+        # Venus 25-30 → Libra
+        if degree < 5:
+            return "Aries"
+        elif degree < 10:
+            return "Aquarius"
+        elif degree < 18:
+            return "Sagittarius"
+        elif degree < 25:
+            return "Gemini"
+        else:
+            return "Libra"
     else:
-        # Even: Venus(5), Mercury(7), Jupiter(8), Saturn(5), Mars(5)
-        if degree < 5: lord = "Venus"
-        elif degree < 12: lord = "Mercury"
-        elif degree < 20: lord = "Jupiter"
-        elif degree < 25: lord = "Saturn"
-        else: lord = "Mars"
+        # Even: Venus 0-5 → Taurus, Mercury 5-12 → Virgo,
+        # Jupiter 12-20 → Pisces, Saturn 20-25 → Capricorn,
+        # Mars 25-30 → Scorpio
+        if degree < 5:
+            return "Taurus"
+        elif degree < 12:
+            return "Virgo"
+        elif degree < 20:
+            return "Pisces"
+        elif degree < 25:
+            return "Capricorn"
+        else:
+            return "Scorpio"
 
-    # D30 sign = the sign owned by the lord
-    return OWN_SIGNS[lord][0]  # Return the first own sign
-
-def calculate_d60_shashtiamsha(longitude):
+def calculate_d60_shashtiamsha(longitude: float) -> str:
     """Calculates D60 (Shashtiamsha) sign.
     BPHS: Odd signs count from self, Even signs count from opposite (7th)."""
     sign_idx = int(longitude / 30)
@@ -238,7 +259,7 @@ def calculate_d60_shashtiamsha(longitude):
     return ZODIAC_SIGNS[d60_idx]
 
 
-def calculate_d40_khavedamsha(longitude):
+def calculate_d40_khavedamsha(longitude: float) -> str:
     """Calculates D40 (Khavedamsha / Akshavedamsha) sign — Auspicious/Inauspicious effects.
     40 equal parts of 0.75° each.
     Odd signs start from Aries, Even signs start from Libra.
@@ -336,12 +357,16 @@ def _enrich_planets(raw_planets: dict, asc_sign_idx: int, sun_lon: float) -> tup
     for name, rp in raw_planets.items():
         house = _house_from_lagna(rp["sign_idx"], asc_sign_idx)
         nak = get_nakshatra(rp["lon"])
-        dignity = get_dignity(name, rp["sign"], rp["degree"], planets_in_signs)
+        # Full-precision degree for boundary-sensitive dignity checks;
+        # the rounded "degree" stays as the display value.
+        precise_deg = round(rp["lon"] % 30, 6)
+        dignity = get_dignity(name, rp["sign"], precise_deg, planets_in_signs)
         is_combust = check_combustion(name, rp["lon"], sun_lon, rp["is_retrograde"]) if sun_lon is not None else False
         has_digbala = get_digbala(name, house)
         planet_entry = {
             "sign": rp["sign"],
             "degree": rp["degree"],
+            "degree_precise": precise_deg,
             "house": house,
             "nakshatra": nak["name"],
             "pada": nak["pada"],
@@ -405,9 +430,10 @@ def _to_jd(dob_str: str, time_str: str, timezone_str: str) -> tuple:
         local_dt = local_tz.localize(naive_dt, is_dst=None)
     except Exception as exc:
         # pytz raises AmbiguousTimeError/NonExistentTimeError (not ValueError
-        # subclasses) for DST transitions — map into the error taxonomy.
+        # subclasses) for DST transitions — and plain Errors for dates its
+        # historical tables cannot represent. Map all into the taxonomy.
         raise InvalidInputError(
-            f"Non-existent or ambiguous local time '{dob_str} {time_str}' in '{timezone_str}': {exc}"
+            f"Invalid local time '{dob_str} {time_str}' in '{timezone_str}': {exc}"
         ) from exc
     utc_dt = local_dt.astimezone(pytz.utc)
 
@@ -420,14 +446,14 @@ def _to_jd(dob_str: str, time_str: str, timezone_str: str) -> tuple:
 def calculate_bhava_chalit(asc_lon: float, raw_planets: dict) -> dict:
     """
     Calculate Bhava Chalit (Equal House from Lagna midpoint).
-    
+
     In Bhava Chalit, house cusps are at 15° before and after the Lagna degree.
     Bhava 1 midpoint = Lagna. Cusp 1 starts at (Lagna - 15°).
     Each house spans exactly 30°.
-    
+
     A planet's Bhava house may differ from its Rashi (whole-sign) house
     when it's near a sign boundary.
-    
+
     Returns
     -------
     dict: {planet_name: {"bhava_house": int, "rashi_house": int, "shifted": bool}}
@@ -435,42 +461,42 @@ def calculate_bhava_chalit(asc_lon: float, raw_planets: dict) -> dict:
     # Bhava 1 midpoint is at the Lagna degree
     # Cusp of house 1 starts at asc_lon - 15°
     cusp_start = (asc_lon - 15.0) % 360.0
-    
+
     asc_sign_idx = int(asc_lon / 30) % 12
-    
+
     result = {}
     for name, rp in raw_planets.items():
         planet_lon = rp["lon"]
-        
+
         # Rashi house (whole-sign)
         rashi_house = ((rp["sign_idx"] - asc_sign_idx) % 12) + 1
-        
+
         # Bhava house (equal house from lagna midpoint)
         diff = (planet_lon - cusp_start) % 360.0
         bhava_house = int(diff / 30.0) + 1
         if bhava_house > 12:
             bhava_house = 12
-        
+
         result[name] = {
             "bhava_house": bhava_house,
             "rashi_house": rashi_house,
             "shifted": bhava_house != rashi_house,
         }
-    
+
     return result
 
 
 def calculate_avasthas(planets_data: dict, raw_planets: dict) -> dict:
     """
     Calculate Planetary Avasthas (age states) per BPHS.
-    
+
     Five states based on degree in sign:
     - Bala (Infant): 0-6° — weak, dependent, immature results
-    - Kumara (Adolescent): 6-12° — growing, partially effective  
+    - Kumara (Adolescent): 6-12° — growing, partially effective
     - Yuva (Youth): 12-18° — full strength, best results
     - Vriddha (Old): 18-24° — declining, delayed results
     - Mrita (Dead): 24-30° — very weak, negligible results
-    
+
     Returns
     -------
     dict: {planet_name: {"avastha": str, "degree": float, "strength_factor": float, "description": str}}
@@ -482,42 +508,42 @@ def calculate_avasthas(planets_data: dict, raw_planets: dict) -> dict:
         ("Vriddha", 18, 24, 0.50, "Old state — declining energy, delayed or reduced results."),
         ("Mrita", 24, 30, 0.125, "Dead state — exhausted, negligible capacity to deliver results."),
     ]
-    
+
     # For odd signs: Bala→Kumara→Yuva→Vriddha→Mrita (normal order)
     # For even signs: Mrita→Vriddha→Yuva→Kumara→Bala (reverse order)
-    
+
     result = {}
     for name, rp in raw_planets.items():
         if name in ("Rahu", "Ketu"):
             continue
-        
+
         degree = rp["degree"]
         sign_idx = rp["sign_idx"]
         is_odd_sign = (sign_idx % 2) == 0  # Aries=0 (odd), Taurus=1 (even), etc.
-        
+
         if is_odd_sign:
             table = AVASTHA_TABLE
         else:
             table = list(reversed(AVASTHA_TABLE))
-        
+
         avastha_name = "Yuva"
         strength_factor = 1.0
         description = ""
-        
+
         for avastha, start, end, factor, desc in table:
             if start <= degree < end:
                 avastha_name = avastha
                 strength_factor = factor
                 description = desc
                 break
-        
+
         result[name] = {
             "avastha": avastha_name,
             "degree": round(degree, 2),
             "strength_factor": strength_factor,
             "description": description,
         }
-    
+
     return result
 
 
@@ -550,15 +576,28 @@ def _validate_chart_contract(chart_data: dict) -> None:
     if missing_p:
         raise CalculationError(f"Chart missing planets: {sorted(missing_p)}")
     for name, pd in planets.items():
+        if not isinstance(pd, dict):
+            raise CalculationError(f"Planet '{name}' entry is not a dict: {type(pd).__name__}")
         missing_f = _REQUIRED_PLANET_FIELDS - set(pd)
         if missing_f:
             raise CalculationError(f"Planet '{name}' missing fields: {sorted(missing_f)}")
         if pd["sign"] not in ZODIAC_SIGNS:
             raise CalculationError(f"Planet '{name}' has invalid sign: {pd['sign']!r}")
-        if not 1 <= pd["house"] <= 12:
+        if not isinstance(pd["house"], int) or not 1 <= pd["house"] <= 12:
             raise CalculationError(f"Planet '{name}' has invalid house: {pd['house']!r}")
+        deg = pd["degree"]
+        # Tolerate the 30.0 display-rounding artifact: round(x, 2) maps the
+        # ~18-arcsec sliver 29.995-29.999… to 30.0, which is still that sign.
+        if deg == 30.0:
+            deg = 0.0
+        if not isinstance(deg, (int, float)) or isinstance(deg, bool) \
+                or not math.isfinite(deg) or not 0 <= deg < 30:
+            raise CalculationError(f"Planet '{name}' has invalid degree: {pd['degree']!r}")
     if chart_data["lagna"]["sign"] not in ZODIAC_SIGNS:
         raise CalculationError(f"Lagna has invalid sign: {chart_data['lagna']['sign']!r}")
+    aya = chart_data["metadata"].get("ayanamsha_degrees")
+    if not isinstance(aya, (int, float)) or not math.isfinite(aya):
+        raise CalculationError(f"Invalid ayanamsha_degrees: {aya!r}")
     if not chart_data["dashas"].get("timeline"):
         raise CalculationError("Dasha timeline is empty.")
     sav_total = chart_data["ashtakavarga"].get("total_bindus")
@@ -611,6 +650,8 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
         except Exception as exc:
             raise EphemerisError(f"Could not compute houses for lat={lat}, lon={lon}: {exc}") from exc
         asc_lon = ascmc[0]
+        if not isinstance(asc_lon, (int, float)) or not math.isfinite(asc_lon):
+            raise EphemerisError(f"Ephemeris returned non-finite ascendant: {asc_lon!r}")
         asc_sign, asc_deg, asc_sign_idx = get_sign_and_degree(asc_lon)
         asc_nak = get_nakshatra(asc_lon)
 
@@ -621,20 +662,23 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             raise EphemerisError(f"Ephemeris backend failed (planets): {exc}") from exc
 
     # --- Build enriched planet data (shared helper; vargas table-driven) ---
-    planets_output, planets_for_yoga = _enrich_planets(raw_planets, asc_sign_idx, sun_lon)
+    try:
+        planets_output, planets_for_yoga = _enrich_planets(raw_planets, asc_sign_idx, sun_lon)
+    except (KeyError, ValueError, TypeError) as exc:
+        raise CalculationError(f"Planet enrichment failed: {exc}") from exc
 
     # --- Dasha ---
     moon_lon = raw_planets["Moon"]["lon"]
     birth_dt_naive = local_dt.replace(tzinfo=None)
 
-    if query_date_str:
+    if query_date_str is not None:
         try:
             query_dt = datetime.datetime.strptime(query_date_str, "%Y-%m-%d")
-        except ValueError:
+        except (ValueError, TypeError):
             raise InvalidInputError(f"Invalid query_date '{query_date_str}'. Expected YYYY-MM-DD.") from None
     else:
-        logger.debug("query_date omitted; defaulting to today (non-deterministic across days)")
-        query_dt = datetime.datetime.now()
+        logger.debug("query_date omitted; defaulting to today at noon (stable within a day)")
+        query_dt = datetime.datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
 
     dasha_data = calculate_dashas(moon_lon, birth_dt_naive, query_dt)
 
@@ -643,8 +687,11 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
 
     # --- Panchang ---
     # calculate_panchang touches Swiss global state (set_topo/rise_trans), so
-    # it runs under the same lock as the rest of the ephemeris section.
+    # it runs under the same lock as the rest of the ephemeris section, with
+    # the caller's ephemeris path re-applied (a concurrent transit call
+    # configures the bundled path and must not leak into this chart).
     with _SWE_LOCK:
+        _configure_swiss_ephemeris(ephe_path)
         panchang_data = calculate_panchang(jd, sun_lon, moon_lon, lat, lon)
 
     # --- Ashtakavarga ---
@@ -729,7 +776,7 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
     # Transit at noon on the given date
     try:
         dt = datetime.datetime.strptime(transit_date_str, "%Y-%m-%d")
-    except ValueError:
+    except (ValueError, TypeError):
         raise InvalidInputError(f"Invalid transit_date '{transit_date_str}'. Expected YYYY-MM-DD.") from None
     try:
         local_tz = pytz.timezone(timezone_str)

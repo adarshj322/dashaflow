@@ -352,7 +352,9 @@ class TestDivisionalCharts(unittest.TestCase):
         self.assertEqual(calculate_d30_trimshamsha(2.0), "Aries")
 
     def test_d30_odd_sign_second_5(self):
-        self.assertEqual(calculate_d30_trimshamsha(7.0), "Capricorn")
+        # BPHS: odd-sign Saturn segment (5-10°) maps to Aquarius (fixed sign),
+        # not Saturn's first own sign Capricorn.
+        self.assertEqual(calculate_d30_trimshamsha(7.0), "Aquarius")
 
     def test_d30_even_sign_first_5(self):
         self.assertEqual(calculate_d30_trimshamsha(32.0), "Taurus")
