@@ -1,9 +1,13 @@
-from .constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
+from .constants import (
+    DUSTHANA_HOUSES,
+    EXALTATION,
+    KENDRA_HOUSES,
+    OWN_SIGNS,
+    SIGN_LORDS,
+    TRIKONA_HOUSES,
+    ZODIAC_SIGNS,
+)
 
-
-KENDRA_HOUSES = {1, 4, 7, 10}
-TRIKONA_HOUSES = {1, 5, 9}
-DUSTHANA_HOUSES = {6, 8, 12}
 # Natural benefics for yoga purposes. Moon is excluded here (Adhi/Amala use
 # Mercury/Jupiter/Venus only in this simplified engine); waxing-Moon variants
 # are noted in docstrings rather than detected.
@@ -29,14 +33,17 @@ GANDANTA_ORB = 3.3333  # 3°20' = one pada
 
 
 def _house_from(base_sign_idx, planet_sign_idx):
+    """Whole-sign house count from base sign to planet sign (1-12)."""
     return ((planet_sign_idx - base_sign_idx) % 12) + 1
 
 
 def _sign_idx(sign_name):
+    """Zodiac index of a sign name (0-11)."""
     return ZODIAC_SIGNS.index(sign_name)
 
 
 def _lord_of_house(lagna_sign_idx, house_num):
+    """Sign lord of a whole-sign house counted from Lagna."""
     sign_idx = (lagna_sign_idx + house_num - 1) % 12
     return SIGN_LORDS[ZODIAC_SIGNS[sign_idx]]
 
@@ -74,6 +81,7 @@ def _kemadruma_cancelled(planets, moon_idx, lagna_idx):
 
 
 def _is_exalted_or_own(planet_name, sign):
+    """True when the planet is exalted or in its own sign (dignity shortcut)."""
     if planet_name in EXALTATION and EXALTATION[planet_name][0] == sign:
         return True
     if planet_name in OWN_SIGNS and sign in OWN_SIGNS[planet_name]:
@@ -81,7 +89,7 @@ def _is_exalted_or_own(planet_name, sign):
     return False
 
 
-def detect_yogas(planets, lagna_sign):
+def detect_yogas(planets: dict, lagna_sign: str) -> list:
     """
     Detect key Vedic yogas from chart data.
 
@@ -491,7 +499,7 @@ def detect_yogas(planets, lagna_sign):
     return yogas
 
 
-def detect_kaal_sarpa(raw_planets):
+def detect_kaal_sarpa(raw_planets: dict):
     """
     Detect Kaal Sarpa Dosha: all 7 planets hemmed between Rahu-Ketu axis.
 
@@ -533,19 +541,19 @@ def detect_kaal_sarpa(raw_planets):
             return raw_planets[name]["lon"] % 360.0
         except KeyError:
             raise ValueError(f"Missing planet '{name}' for Kaal Sarpa check.") from None
-    
+
     # Arc from Rahu to Ketu
     all_rahu_to_ketu = all(_lon_in_arc(_planet_lon(p), rahu_lon, ketu_lon) for p in seven)
     # Arc from Ketu to Rahu
     all_ketu_to_rahu = all(_lon_in_arc(_planet_lon(p), ketu_lon, rahu_lon) for p in seven)
-    
+
     if all_rahu_to_ketu or all_ketu_to_rahu:
         # Determine type: Ascending (Rahu leads) or Descending (Ketu leads)
         if all_rahu_to_ketu:
             kaal_type = "Ascending (planets move toward Ketu)"
         else:
             kaal_type = "Descending (planets move toward Rahu)"
-        
+
         return {
             "present": True,
             "type": kaal_type,
@@ -553,7 +561,7 @@ def detect_kaal_sarpa(raw_planets):
             "ketu_sign": ZODIAC_SIGNS[ketu_idx],
             "description": "All 7 planets hemmed between Rahu-Ketu axis — karmic restriction pattern affecting life direction.",
         }
-    
+
     # Check partial Kaal Sarpa (one planet outside — still significant)
     for checker in [lambda p: _lon_in_arc(_planet_lon(p), rahu_lon, ketu_lon),
                     lambda p: _lon_in_arc(_planet_lon(p), ketu_lon, rahu_lon)]:
@@ -566,11 +574,11 @@ def detect_kaal_sarpa(raw_planets):
                 "ketu_sign": ZODIAC_SIGNS[ketu_idx],
                 "description": f"Near-complete Kaal Sarpa — only {outside[0]} escapes the nodal axis. Karmic themes still dominant.",
             }
-    
+
     return None
 
 
-def detect_graha_yuddha(raw_planets):
+def detect_graha_yuddha(raw_planets: dict) -> list:
     """
     Detect Planetary War (Graha Yuddha): two planets within 1° of each other.
     Only applies to Mars, Mercury, Jupiter, Venus, Saturn (not Sun, Moon, Rahu, Ketu).
@@ -620,21 +628,21 @@ def detect_graha_yuddha(raw_planets):
     return wars
 
 
-def detect_gandanta(raw_planets, asc_lon=None):
+def detect_gandanta(raw_planets: dict, asc_lon=None) -> list:
     """
     Detect Gandanta: planets or Lagna at water-fire sign junctions (last/first 3°20').
     These are inauspicious knot points where nakshatra and sign boundaries overlap.
-    
+
     Returns
     -------
     list of dict — each gandanta point detected
     """
     gandanta_points = []
-    
+
     def _check_gandanta(name, longitude):
         sign_idx = int(longitude / 30) % 12
         degree = longitude % 30
-        
+
         for water_idx, fire_idx in GANDANTA_JUNCTIONS:
             # Last 3°20' of water sign
             if sign_idx == water_idx and degree >= (30 - GANDANTA_ORB):
@@ -657,15 +665,15 @@ def detect_gandanta(raw_planets, asc_lon=None):
                     "description": f"{name} at {degree:.1f}° {ZODIAC_SIGNS[sign_idx]} — Gandanta zone (karmic knot, spiritual transformation).",
                 }
         return None
-    
+
     for name, rp in raw_planets.items():
         result = _check_gandanta(name, rp["lon"])
         if result:
             gandanta_points.append(result)
-    
+
     if asc_lon is not None:
         result = _check_gandanta("Lagna", asc_lon)
         if result:
             gandanta_points.append(result)
-    
+
     return gandanta_points
