@@ -20,9 +20,10 @@ import dashaflow
 chart = dashaflow.cast_chart("1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata")
 
 print(chart["lagna"]["sign"])              # "Leo"
-print(chart["planets"]["Moon"]["nakshatra"])  # "Ashwini"
-print(chart["planets"]["Jupiter"]["dignity"]) # "exalted"
-print(chart["dashas"]["maha"]["planet"])      # Current Mahadasha lord
+print(chart["planets"]["Moon"]["nakshatra"])  # "Jyeshtha" (for this birth data)
+print(chart["planets"]["Moon"]["dignity"])    # "debilitated"
+maha = chart["dashas"]["maha"]
+print(maha["planet"] if maha else None)       # Current Mahadasha lord (None outside the 120-year span)
 print(chart["yogas"])                         # Detected yogas
 
 # Transits
@@ -40,7 +41,7 @@ print(f"Score: {compat['total_score']}/36")
 
 # Muhurtha (electional astrology)
 muhurtha = dashaflow.check_muhurtha("marriage", "2026-11-15", "10:30", 28.61, 77.21, "Asia/Kolkata")
-print(muhurtha["verdict"])  # "auspicious" / "mixed" / "inauspicious"
+print(muhurtha["verdict"])  # "auspicious" / "mixed_favorable" / "mixed" / "inauspicious"
 
 # Career analysis
 career = dashaflow.analyze_career("1990-04-15", "14:30", 28.61, 77.21, "Asia/Kolkata")
@@ -68,6 +69,8 @@ from dashaflow.shadbala import calculate_shadbala
 from dashaflow.jaimini import calculate_jaimini_karakas, calculate_arudha_padas
 from dashaflow.yoga import detect_yogas, detect_kaal_sarpa
 from dashaflow.ashtakavarga import calculate_ashtakavarga
+from dashaflow.errors import DashaFlowError, InvalidInputError, EphemerisError, CalculationError
+from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 ```
 
 ### `cast_chart()` Returns
@@ -77,9 +80,9 @@ from dashaflow.ashtakavarga import calculate_ashtakavarga
 | `metadata` | DOB, time, coordinates, ayanamsha (Lahiri), query date |
 | `panchang` | Tithi, Vara, Nakshatra, Yoga, Karana |
 | `lagna` | Ascendant sign, degree, nakshatra, pada, D2–D60 signs |
-| `planets` | Per planet: sign, degree, house, nakshatra, pada, dignity, combustion, retrograde, digbala, aspects, 14 varga signs |
+| `planets` | Per planet: sign, degree, degree_precise, house, nakshatra, pada, dignity, combustion, retrograde, digbala, aspects, 14 varga signs |
 | `dashas` | 5 levels: Maha, Antar, Pratyantar, Sukshma, Prana + 120-year timeline |
-| `yogas` | 24 types detected with forming planets and descriptions |
+| `yogas` | ~20 named types across 24 detection sites (Raj Yoga and Dhana Yoga have multiple variants) with forming planets and descriptions |
 | `ashtakavarga` | SAV, BAV, Prashtara (source-level bindus) |
 | `jaimini_karakas` | 7 Karakas by degree (Atmakaraka through Darakaraka) |
 | `shadbala` | Six-fold strength in Rupas + percentage + Ishta/Kashta Phala |
@@ -99,7 +102,7 @@ from dashaflow.ashtakavarga import calculate_ashtakavarga
 - **Planetary Strength** — Dignity (B.V. Raman), combustion (BPHS orbs), Digbala, Shadbala (6-fold), Ishta/Kashta Phala
 - **BPHS Aspects** — 7th for all, special aspects for Mars (4th/8th), Jupiter (5th/9th), Saturn (3rd/10th)
 - **Vimshottari Dasha** — 5 levels (Maha → Antar → Pratyantar → Sukshma → Prana), 120-year timeline
-- **24 Yoga Types** — Pancha Mahapurusha, Gajakesari, Budhaditya, Raj Yoga, Neecha Bhanga, Parivartana, Dhana, and more
+- **24 Yoga Detections** — Pancha Mahapurusha, Gajakesari, Budhaditya, Raj Yoga, Neecha Bhanga, Parivartana, Dhana, and more
 - **Ashtakavarga** — SAV, BAV, Prashtara (source-level bindu contributions)
 - **Jaimini** — 7 Karakas, Arudha Padas (A1–A12), Upapada Lagna, Karakamsha
 - **Compatibility** — 8 Ashtakoot kutas (36 pts) + Mahendra, Stree Deergha, Vedha, Rajju, Kuja Dosha
@@ -113,12 +116,15 @@ from dashaflow.ashtakavarga import calculate_ashtakavarga
 
 ```
 dashaflow/
-├── __init__.py         Public API (5 functions)
+├── __init__.py         Public API (5 functions + error taxonomy)
+├── _validation.py      Input validation (dates, coordinates, timezones, paths)
+├── errors.py           DashaFlowError, InvalidInputError, EphemerisError, CalculationError
+├── _version.py         Single-sourced package version
 ├── vedic_calculator.py Core engine — Swiss Ephemeris computations
-├── constants.py        Zodiac, nakshatras, dignity tables
+├── constants.py        Zodiac, nakshatras, dignity tables, house sets
 ├── nakshatra.py        Nakshatra lookup from longitude
 ├── panchang.py         Tithi, Vara, Yoga, Karana
-├── yoga.py             24 yoga types + Kaal Sarpa, Graha Yuddha, Gandanta
+├── yoga.py             Yoga detections + Kaal Sarpa, Graha Yuddha, Gandanta
 ├── dasha.py            Vimshottari Dasha (5 levels)
 ├── dignity.py          Dignity, combustion, digbala
 ├── ashtakavarga.py     SAV, BAV, Prashtara
@@ -135,7 +141,7 @@ All calculations use **Lahiri (Chitrapaksha)** — the official standard of the 
 
 ## Extended Ephemeris
 
-The bundled Swiss Ephemeris data covers ~1800–2400 AD at full accuracy. Births outside that range still compute via the Moshier analytic fallback, and the chart flags it honestly in `metadata["ephemeris_accuracy"]` (plus a log warning). For full historical/far-future accuracy, download additional `.se1` files from [astro.com](https://www.astro.com/swisseph/) and pass the path:
+No `.se1` data files ship with the package — positions come from the analytic Moshier fallback built into `pyswisseph` unless you supply data files. Inside ~1800–2400 AD this is high accuracy for chart purposes and reported as `metadata["ephemeris_accuracy"] == "full"`. Births outside that range still compute, but the chart honestly flags `reduced (Moshier fallback…)` (plus a log warning). For maximum historical/far-future accuracy, download `.se1` files from [astro.com](https://www.astro.com/swisseph/) and pass the path:
 
 ```python
 chart = dashaflow.cast_chart("1200-03-10", "12:00", 28.61, 77.21, "Asia/Kolkata",

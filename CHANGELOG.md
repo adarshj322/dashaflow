@@ -23,13 +23,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - `vedic_calculator` refactored: table-driven vargas, shared Ketu synthesis, `_compute_raw_planets`/`_enrich_planets` helpers, locked Swiss Ephemeris config, typed helpers, concise `__main__` demo.
 - Panchang Vara mapping verified (J2000 Saturday check) with float epsilon guards; Jaimini docstring corrected to 7-karaka with deterministic tie-break; Ashtakavarga raises ValueError on bad/missing inputs.
 - Removed stale root duplicates (`test_comprehensive.py`, `test_enhancements.py`, `test_phase2.py`); fixed README `total_score` key.
-
-### Changed
 - Thread-safety is now real: the whole Swiss Ephemeris section (configure → compute), including the Panchang sunrise correction (`set_topo`/`rise_trans`), runs under one process-wide lock; concurrent charts verified in tests.
 - Dasha sub-periods tile exact parent spans (rounded display `days` no longer used for tiling), closing boundary gaps where no level resolved.
 - Ambiguous/nonexistent local times (DST transitions, date-line skips) now raise `InvalidInputError` instead of silently resolving via `is_dst=False`.
 - `planets_for_yoga` now carries `is_retrograde`, so Mahapurusha weakness notes can actually fire.
 - Removed dead imports flagged by ruff across library modules.
+
+### Fixed
+- D30 Trimshamsha returns the BPHS fixed sign per segment (was the lord's first own sign — wrong in 5 of 10 segments).
+- Shadbala Saptavargaja now scores Panchadha-Maitri grades (`great_friend`/`great_enemy` were falling through to neutral).
+- Chesta Bala direct-motion scale now matches its spec (0→45, avg→30, 2x→15).
+- Dasha balance and Jaimini karaka ordering use full-precision degrees (no rounding-induced flips); Mooltrikona boundaries checked on precise degrees.
+- Unhashable `activity` and non-string dates now raise `InvalidInputError` instead of leaking `TypeError`; empty `query_date_str` is rejected rather than silently meaning today.
+- Custom `ephe_path` is re-applied around the Panchang correction so a concurrent transit call cannot downgrade it.
+- Low-level matchmaking/muhurtha/career helpers validate shapes (`InvalidInputError`) or ignore mistyped nesting instead of raising `KeyError`/`AttributeError`/`TypeError`.
+- Contract gate additionally checks planet degree ranges, ayanamsha finiteness, and entry types.
+- Omitted `query_date` defaults to today at noon (stable within a day); README quickstart now uses verified Delhi values and documents all four muhurtha verdicts.
+- Muhurtha no longer penalizes missing weekday/Moon-sign signals and no longer fabricates Sagraha Dosha without a Moon position; misspelled lagna signs raise instead of scoring "not ideal".
+- Kuja Dosha rejects partial entries and out-of-range houses/signs instead of scoring false zeros; absent planets still score nothing, while present-but-malformed entries raise; contract gate tolerates the 30.0 display-rounding sliver.
+- Jaimini karaka lookup uses lazy `degree_precise` fallback and maps non-dict entries to `ValueError`.
+- CI/packaging: pinned build floor, version-tolerant gates in both workflows, least-privilege publish test job, `.[dev]` installs, clean builds.
 
 ## [1.1.0] - 2026-04-08
 
