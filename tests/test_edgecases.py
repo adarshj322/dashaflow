@@ -194,3 +194,25 @@ class TestDSTErrorTaxonomy:
         # Pacific/Apia skipped 2011-12-30 entirely (date-line jump).
         with pytest.raises(InvalidInputError):
             calculate_transit("2011-12-30", natal, "Pacific/Apia")
+
+
+class TestGeographicAndTemporalExtremes:
+    def test_poles_do_not_crash_and_serialize(self):
+        import json
+
+        import dashaflow
+        for lat, lon in [(90.0, 0.0), (-90.0, 0.0), (89.9, 10.0)]:
+            chart = dashaflow.cast_chart("1990-04-15", "14:30", lat, lon, "UTC",
+                                         query_date="2026-01-01")
+            json.dumps(chart)  # must stay serializable
+            assert chart["lagna"]["sign"]
+
+    def test_unrepresentable_years_raise_invalid_input(self):
+        import pytest
+
+        import dashaflow
+        from dashaflow import InvalidInputError
+        with pytest.raises(InvalidInputError):
+            dashaflow.cast_chart("0001-01-01", "12:00", 28.6, 77.2, "Asia/Kolkata")
+        with pytest.raises(InvalidInputError):
+            dashaflow.cast_chart("9999-12-31", "12:00", 28.6, 77.2, "Asia/Kolkata")
