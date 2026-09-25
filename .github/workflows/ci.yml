@@ -40,7 +40,7 @@ jobs:
           cache: pip
       - run: pip install ruff
       - run: ruff check --select F,E9 src
-      - run: ruff check src/dashaflow/_validation.py src/dashaflow/dasha.py src/dashaflow/errors.py tests/test_validation.py tests/test_edgecases.py tests/test_production.py
+      - run: ruff check src/dashaflow/_validation.py src/dashaflow/dasha.py src/dashaflow/errors.py src/dashaflow/vedic_calculator.py src/dashaflow/yoga.py src/dashaflow/matchmaking.py src/dashaflow/muhurtha.py src/dashaflow/career.py tests/test_validation.py tests/test_edgecases.py tests/test_production.py tests/test_units.py
 
   build:
     runs-on: ubuntu-latest
@@ -52,5 +52,17 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install build
-      - run: python -m build
+      - run: rm -rf dist/ && python -m build
       - run: python -c "import zipfile,glob; ws=glob.glob('dist/*.whl'); assert ws, 'no wheel built in dist/'; assert 'dashaflow/py.typed' in zipfile.ZipFile(ws[0]).namelist(), 'py.typed missing from wheel'"
+      - name: Check version/CHANGELOG consistency
+        run: |
+          python - <<'EOF'
+          import re, pathlib
+          src = pathlib.Path('src/dashaflow/_version.py').read_text()
+          m = re.search(r'''__version__\s*=\s*["']([^"']+)["']''', src)
+          assert m, 'could not parse _version.py'
+          v = m.group(1)
+          log = pathlib.Path('CHANGELOG.md').read_text()
+          assert re.search(rf'^##\s+\[?{re.escape(v)}\]?(\s|-)', log, re.M), \
+              f'CHANGELOG missing entry for {v}'
+          EOF
