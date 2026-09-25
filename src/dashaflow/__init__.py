@@ -21,7 +21,7 @@ from ._validation import validate_birth_input, validate_query_date, validate_eph
 from .vedic_calculator import calculate_vedic_chart, calculate_transit
 from .matchmaking import calculate_ashtakoot, calc_kuja_dosha, match_kuja_dosha
 from .muhurtha import evaluate_muhurtha, ACTIVITY_RULES
-from .career import analyze_career as _analyze_career_internal
+from .career import analyze_career as _career_analyze_internal
 from .constants import ZODIAC_SIGNS
 
 __all__ = [
@@ -221,8 +221,8 @@ def check_muhurtha(
         Verdict (auspicious/mixed/inauspicious), score, factors, panchang_suddhi.
     """
     validate_birth_input(date, time, lat, lon, timezone)
-    if activity not in ACTIVITY_RULES:
-        raise ValueError(f"Unknown activity '{activity}'. Supported: {list(ACTIVITY_RULES.keys())}")
+    if not isinstance(activity, str) or activity not in ACTIVITY_RULES:
+        raise InvalidInputError(f"Unknown activity '{activity}'. Supported: {list(ACTIVITY_RULES.keys())}")
 
     chart = calculate_vedic_chart(date, time, lat, lon, timezone)
     panchang = chart.get("panchang", {})
@@ -263,4 +263,4 @@ def analyze_career(
     chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
     planets = chart.get("planets", {})
     lagna_sign = chart.get("lagna", {}).get("sign")
-    return _analyze_career_internal(planets, lagna_sign)
+    return _career_analyze_internal(planets, lagna_sign)

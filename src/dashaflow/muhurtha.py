@@ -4,6 +4,9 @@ Evaluates auspiciousness of a given date/time for specific activities.
 Uses Panchang elements, planetary positions, and classical rules.
 """
 
+from .constants import ZODIAC_SIGNS
+from .errors import InvalidInputError
+
 # ==========================================
 # UNIVERSAL AVOIDANCE RULES
 # ==========================================
@@ -75,36 +78,62 @@ ACTIVITY_RULES = {
 }
 
 
+def _section(panchang, key):
+    """Nested panchang section as a dict; mistyped values become {} (ignored)."""
+    section = panchang.get(key, {})
+    return section if isinstance(section, dict) else {}
+
+
+def _contains(container, value):
+    """Set membership that tolerates unhashable/mistyped values (→ False)."""
+    try:
+        return value in container
+    except TypeError:
+        return False
+
+
 def _check_panchanga_suddhi(panchang):
     """Check universal Panchang purity (5-fold). Returns list of issues."""
     issues = []
 
-    tithi_num = panchang.get("tithi", {}).get("number", 0)
-    if tithi_num in BAD_TITHIS:
-        issues.append(f"Inauspicious tithi: {panchang['tithi'].get('name', tithi_num)}")
+    tithi = _section(panchang, "tithi")
+    tithi_num = tithi.get("number", 0)
+    if _contains(BAD_TITHIS, tithi_num):
+        issues.append(f"Inauspicious tithi: {tithi.get('name', tithi_num)}")
 
-    nak_name = panchang.get("nakshatra", {}).get("name", "")
-    if nak_name in BAD_NAKSHATRAS:
+    nak_name = _section(panchang, "nakshatra").get("name", "")
+    if _contains(BAD_NAKSHATRAS, nak_name):
         issues.append(f"Inauspicious nakshatra: {nak_name}")
 
-    yoga_idx = panchang.get("yoga", {}).get("index", -1)
-    if yoga_idx in BAD_YOGAS:
-        issues.append(f"Inauspicious yoga: {panchang['yoga'].get('name', yoga_idx)}")
+    yoga = _section(panchang, "yoga")
+    yoga_idx = yoga.get("index", -1)
+    if _contains(BAD_YOGAS, yoga_idx):
+        issues.append(f"Inauspicious yoga: {yoga.get('name', yoga_idx)}")
 
     return issues
+
+
+def _planet_entry(planets, name):
+    """Planet entry as a dict; mistyped values become {} (ignored)."""
+    entry = planets.get(name, {})
+    return entry if isinstance(entry, dict) else {}
 
 
 def _check_marriage_doshas(planets):
     """Check marriage-specific rejection doshas (per BPHS)."""
     doshas = []
 
-    # Sagraha Dosha: Moon conjunct any planet
-    moon = planets.get("Moon", {})
+    # Sagraha Dosha: Moon conjunct any planet (needs a Moon position;
+    # otherwise an empty sign could false-match another empty sign).
+    moon = _planet_entry(planets, "Moon")
     moon_sign = moon.get("sign", "")
-    for p_name, pd in planets.items():
-        if p_name != "Moon" and pd.get("sign") == moon_sign:
-            doshas.append(f"Sagraha Dosha: Moon conjunct {p_name} in {moon_sign}")
-            break
+    if moon_sign:
+        for p_name, pd in planets.items():
+            if not isinstance(pd, dict):
+                continue
+            if p_name != "Moon" and pd.get("sign") == moon_sign:
+                doshas.append(f"Sagraha Dosha: Moon conjunct {p_name} in {moon_sign}")
+                break
 
     # Moon in 6th, 8th, or 12th
     moon_house = moon.get("house", 0)
@@ -112,19 +141,19 @@ def _check_marriage_doshas(planets):
         doshas.append(f"Shashtashta Dosha: Moon in house {moon_house}")
 
     # Venus in 6th
-    venus = planets.get("Venus", {})
+    venus = _planet_entry(planets, "Venus")
     if venus.get("house") == 6:
         doshas.append("Bhrigupta Shatka: Venus in 6th house")
 
     # Mars in 8th
-    mars = planets.get("Mars", {})
+    mars = _planet_entry(planets, "Mars")
     if mars.get("house") == 8:
         doshas.append("Kujaasthama: Mars in 8th house")
 
     return doshas
 
 
-def evaluate_muhurtha(activity, panchang, planets=None, lagna_sign=None):
+def evaluate_muhurtha(activity: str, panchang: dict, planets=None, lagna_sign=None) -> dict:
     """
     Evaluate auspiciousness of a moment for a given activity.
 
@@ -143,6 +172,16 @@ def evaluate_muhurtha(activity, panchang, planets=None, lagna_sign=None):
     -------
     dict with verdict, reasons, and score
     """
+    if not isinstance(activity, str):
+        return {"verdict": "error", "reason": f"Unknown activity: {activity!r} (must be a string)",
+                "supported_activities": list(ACTIVITY_RULES.keys())}
+    if not isinstance(panchang, dict):
+        raise InvalidInputError("Invalid panchang: must be a panchang dict.")
+    if planets is not None and not isinstance(planets, dict):
+        raise InvalidInputError("Invalid planets: must be a planets dict or None.")
+    if lagna_sign is not None:
+        if lagna_sign not in ZODIAC_SIGNS:
+            raise InvalidInputError(f"Invalid lagna_sign: {lagna_sign!r} (must be a zodiac sign or None).")
     rules = ACTIVITY_RULES.get(activity)
     if not rules:
         return {"verdict": "error", "reason": f"Unknown activity: {activity}",
@@ -156,32 +195,34 @@ def evaluate_muhurtha(activity, panchang, planets=None, lagna_sign=None):
     negative.extend(panchang_issues)
 
     # 2. Activity-specific nakshatra
-    nak_name = panchang.get("nakshatra", {}).get("name", "")
+    nak_name = _section(panchang, "nakshatra").get("name", "")
     good_naks = rules.get("good_nakshatras", set())
-    if nak_name in good_naks:
+    if _contains(good_naks, nak_name):
         positive.append(f"Auspicious nakshatra for {activity}: {nak_name}")
-    elif nak_name and nak_name not in BAD_NAKSHATRAS:
+    elif nak_name and not _contains(BAD_NAKSHATRAS, nak_name):
         negative.append(f"Nakshatra {nak_name} is not ideal for {activity}")
 
     # 3. Activity-specific tithi
-    tithi_num = panchang.get("tithi", {}).get("number", 0)
+    tithi = _section(panchang, "tithi")
+    tithi_num = tithi.get("number", 0)
     good_tithis = rules.get("good_tithis", set())
-    if tithi_num in good_tithis:
-        positive.append(f"Auspicious tithi: {panchang['tithi'].get('name', tithi_num)}")
+    if _contains(good_tithis, tithi_num):
+        positive.append(f"Auspicious tithi: {tithi.get('name', tithi_num)}")
 
     # 4. Weekday check
     good_weekdays = rules.get("good_weekdays")
     if good_weekdays:
-        vara = panchang.get("vara", {}).get("name", "")
-        if vara in good_weekdays:
+        vara = _section(panchang, "vara").get("name", "")
+        if _contains(good_weekdays, vara):
             positive.append(f"Auspicious weekday: {vara}")
-        else:
+        elif vara:
+            # Missing vara carries no signal (like missing lagna/nakshatra).
             negative.append(f"Weekday {vara} is not ideal for {activity}")
 
     # 5. Lagna check
     good_lagnas = rules.get("good_lagnas")
     if good_lagnas and lagna_sign:
-        if lagna_sign in good_lagnas:
+        if _contains(good_lagnas, lagna_sign):
             positive.append(f"Auspicious Lagna: {lagna_sign}")
         else:
             negative.append(f"Lagna {lagna_sign} is not ideal for {activity}")
@@ -189,10 +230,10 @@ def evaluate_muhurtha(activity, panchang, planets=None, lagna_sign=None):
     # 6. Moon sign check (for business)
     moon_signs = rules.get("moon_signs")
     if moon_signs and planets:
-        moon_sign = planets.get("Moon", {}).get("sign", "")
-        if moon_sign in moon_signs:
+        moon_sign = _planet_entry(planets, "Moon").get("sign", "")
+        if _contains(moon_signs, moon_sign):
             positive.append(f"Moon in auspicious sign for {activity}: {moon_sign}")
-        else:
+        elif moon_sign:
             negative.append(f"Moon in {moon_sign} is not ideal for {activity}")
 
     # 7. Marriage-specific dosha checks
@@ -204,6 +245,8 @@ def evaluate_muhurtha(activity, panchang, planets=None, lagna_sign=None):
     # 8th house check (should be empty for marriage, medical, house_entry)
     if activity in ("marriage", "medical", "house_entry") and planets:
         for p_name, pd in planets.items():
+            if not isinstance(pd, dict):
+                continue
             if p_name not in ("Rahu", "Ketu") and pd.get("house") == 8:
                 negative.append(f"Planet in 8th house: {p_name}")
                 break

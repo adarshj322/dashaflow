@@ -3,7 +3,16 @@ Career Analysis Framework — D10 Dashamsha interpretation
 Uses D10 chart, 10th house analysis, and planetary significations.
 """
 
-from .constants import ZODIAC_SIGNS, SIGN_LORDS, EXALTATION, OWN_SIGNS
+from .constants import (
+    DUSTHANA_HOUSES,
+    EXALTATION,
+    KENDRA_HOUSES,
+    OWN_SIGNS,
+    SIGN_LORDS,
+    TRIKONA_HOUSES,
+    ZODIAC_SIGNS,
+)
+from .errors import InvalidInputError
 
 # Planet -> career significations (Jyotish standard)
 CAREER_SIGNIFICATIONS = {
@@ -34,11 +43,6 @@ SIGN_CAREERS = {
     "Pisces": ["spirituality", "arts", "healthcare", "shipping", "charity"],
 }
 
-KENDRA_HOUSES = {1, 4, 7, 10}
-TRIKONA_HOUSES = {1, 5, 9}
-DUSTHANA_HOUSES = {6, 8, 12}
-
-
 def _is_strong(planet_name, sign):
     """Check if planet is exalted or in own sign."""
     if planet_name in EXALTATION and EXALTATION[planet_name][0] == sign:
@@ -48,7 +52,7 @@ def _is_strong(planet_name, sign):
     return False
 
 
-def analyze_career(planets, lagna_sign):
+def analyze_career(planets: dict, lagna_sign: str) -> dict:
     """
     Comprehensive career analysis using 10th house, D10, and planetary influences.
 
@@ -61,13 +65,23 @@ def analyze_career(planets, lagna_sign):
     -------
     dict with career indicators, D10 analysis, and recommendations
     """
+    if not isinstance(planets, dict):
+        raise InvalidInputError("Invalid planets: must be a planets dict.")
+    if lagna_sign not in ZODIAC_SIGNS:
+        raise InvalidInputError(f"Invalid lagna_sign '{lagna_sign}'. Must be a zodiac sign.")
     lagna_idx = ZODIAC_SIGNS.index(lagna_sign)
     tenth_sign = ZODIAC_SIGNS[(lagna_idx + 9) % 12]
     tenth_lord = SIGN_LORDS[tenth_sign]
 
+    def _entry(name):
+        entry = planets.get(name, {})
+        return entry if isinstance(entry, dict) else {}
+
     # D10 analysis
     d10_indicators = {}
     for p_name, pd in planets.items():
+        if not isinstance(pd, dict):
+            continue
         d10_sign = pd.get("d10_sign")
         if d10_sign:
             d10_lord = SIGN_LORDS.get(d10_sign)
@@ -80,11 +94,11 @@ def analyze_career(planets, lagna_sign):
     # Planets in 10th house
     tenth_house_planets = []
     for p_name, pd in planets.items():
-        if pd.get("house") == 10:
+        if isinstance(pd, dict) and pd.get("house") == 10:
             tenth_house_planets.append(p_name)
 
     # 10th lord analysis
-    tenth_lord_data = planets.get(tenth_lord, {})
+    tenth_lord_data = _entry(tenth_lord)
     tenth_lord_house = tenth_lord_data.get("house")
     tenth_lord_sign = tenth_lord_data.get("sign", "")
     tenth_lord_d10 = tenth_lord_data.get("d10_sign", "")
@@ -116,15 +130,17 @@ def analyze_career(planets, lagna_sign):
         for theme in SIGN_CAREERS.get(d10_info["d10_sign"], []):
             career_themes.add(theme)
 
-    # Strength assessment
+    # Strength assessment (house membership is hash-guarded: junk values
+    # simply yield no factor instead of TypeError)
     strength_factors = []
+    house_ok = isinstance(tenth_lord_house, int)
     if tenth_lord_dignity in ("exalted", "own_sign", "mooltrikona"):
         strength_factors.append(f"10th lord {tenth_lord} in {tenth_lord_dignity} — strong career foundation")
-    if tenth_lord_house in KENDRA_HOUSES:
+    if house_ok and tenth_lord_house in KENDRA_HOUSES:
         strength_factors.append(f"10th lord {tenth_lord} in kendra (house {tenth_lord_house}) — career prominence")
-    if tenth_lord_house in TRIKONA_HOUSES:
+    if house_ok and tenth_lord_house in TRIKONA_HOUSES:
         strength_factors.append(f"10th lord {tenth_lord} in trikona (house {tenth_lord_house}) — fortune in career")
-    if tenth_lord_house in DUSTHANA_HOUSES:
+    if house_ok and tenth_lord_house in DUSTHANA_HOUSES:
         strength_factors.append(f"10th lord {tenth_lord} in dusthana (house {tenth_lord_house}) — career challenges")
 
     for p_name in tenth_house_planets:
@@ -142,14 +158,14 @@ def analyze_career(planets, lagna_sign):
     # 6th lord analysis (competition/service)
     sixth_sign = ZODIAC_SIGNS[(lagna_idx + 5) % 12]
     sixth_lord = SIGN_LORDS[sixth_sign]
-    sixth_lord_data = planets.get(sixth_lord, {})
+    sixth_lord_data = _entry(sixth_lord)
     if sixth_lord_data.get("house") == 10:
         strength_factors.append(f"6th lord {sixth_lord} in 10th — career in service, healthcare, or competition")
 
     # 7th lord analysis (business/partnerships)
     seventh_sign = ZODIAC_SIGNS[(lagna_idx + 6) % 12]
     seventh_lord = SIGN_LORDS[seventh_sign]
-    seventh_lord_data = planets.get(seventh_lord, {})
+    seventh_lord_data = _entry(seventh_lord)
     if seventh_lord_data.get("house") == 10 or tenth_lord_house == 7:
         strength_factors.append("10th-7th lord connection — career through partnerships or business")
 

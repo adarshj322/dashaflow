@@ -5,7 +5,18 @@ Core 8 kutas return numeric scores; extended kutas (Mahendra, Stree Deergha,
 Vedha, Rajju, Bad Constellations, Lagna-House7, Sex Energy) return verdict
 dicts/strings as documented per function.
 """
-from .constants import ZODIAC_SIGNS, SIGN_LORDS, NATURAL_FRIENDS, NATURAL_ENEMIES, EXALTATION, DEBILITATION, OWN_SIGNS
+import math
+
+from .constants import (
+    DEBILITATION,
+    EXALTATION,
+    NATURAL_ENEMIES,
+    NATURAL_FRIENDS,
+    OWN_SIGNS,
+    SIGN_LORDS,
+    ZODIAC_SIGNS,
+)
+from .errors import InvalidInputError
 from .nakshatra import get_nakshatra
 
 # --- Data Tables ---
@@ -45,8 +56,50 @@ VARNA = {
     "Gemini": 4, "Libra": 4, "Aquarius": 4 # Shudra
 }
 
+def _require_moon_sign(sign, label):
+    """Moon sign must be a valid zodiac sign (list membership is hash-safe)."""
+    if sign not in ZODIAC_SIGNS:
+        raise InvalidInputError(f"Invalid {label} '{sign}'. Must be a zodiac sign.")
+    return sign
+
+
+def _require_nak_idx(idx, label):
+    """Nakshatra index must be an int in 0-26."""
+    if isinstance(idx, bool) or not isinstance(idx, int) or not 0 <= idx <= 26:
+        raise InvalidInputError(f"Invalid {label} '{idx}'. Expected 0-26.")
+    return idx
+
+
+def _require_nak_pada(pada, label):
+    """Nakshatra pada must be an int in 1-4."""
+    if isinstance(pada, bool) or not isinstance(pada, int) or not 1 <= pada <= 4:
+        raise InvalidInputError(f"Invalid {label} '{pada}'. Expected 1-4.")
+    return pada
+
+
+def _safe_sign(entry, label):
+    """Extract a validated-or-None sign from a chart/planet entry dict."""
+    if not isinstance(entry, dict):
+        raise InvalidInputError(f"Invalid {label}: must be a dict.")
+    sign = entry.get("sign")
+    if sign is None:
+        return None
+    _require_moon_sign(sign, label)
+    return sign
+
+
+def _safe_planets(chart, label):
+    """Extract the planets mapping from a chart dict."""
+    planets = chart.get("planets", {})
+    if not isinstance(planets, dict):
+        raise InvalidInputError(f"Invalid {label}: 'planets' must be a dict.")
+    return planets
+
 # 1. Varna (1 point)
 def calc_varna(m_sign, f_sign):
+    """Varna Kuta: bride's varna rank must be >= groom's. Returns 1.0 or 0.0."""
+    _require_moon_sign(m_sign, "m_sign")
+    _require_moon_sign(f_sign, "f_sign")
     m_varna = VARNA[m_sign]
     f_varna = VARNA[f_sign]
     return 1.0 if m_varna <= f_varna else 0.0
@@ -94,6 +147,9 @@ VASHYA_MATRIX = {
 }
 
 def calc_vashya(m_sign, f_sign):
+    """Vashya Kuta (2 pts): mutual-attraction score from sign categories."""
+    _require_moon_sign(m_sign, "m_sign")
+    _require_moon_sign(f_sign, "f_sign")
     if m_sign == f_sign:
         return 2.0
     m_type = VASHYA_TYPE.get(m_sign, "Manava")
@@ -102,6 +158,9 @@ def calc_vashya(m_sign, f_sign):
 
 # 3. Tara (3 points)
 def calc_tara(m_nak_idx, f_nak_idx):
+    """Tara Kuta: 1.5 pts per direction unless the count falls on 2/4/6 (dustha-tara)."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     m_to_f = (f_nak_idx - m_nak_idx) % 9
     f_to_m = (m_nak_idx - f_nak_idx) % 9
     pts = 0.0
@@ -111,6 +170,9 @@ def calc_tara(m_nak_idx, f_nak_idx):
 
 # 4. Yoni (4 points)
 def calc_yoni(m_nak_idx, f_nak_idx):
+    """Yoni Kuta: same animal 4.0, enemy animals 0.0, otherwise 2.0."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     m_yoni = YONI_ANIMALS[m_nak_idx]
     f_yoni = YONI_ANIMALS[f_nak_idx]
     if m_yoni == f_yoni:
@@ -121,6 +183,7 @@ def calc_yoni(m_nak_idx, f_nak_idx):
 
 # 5. Graha Maitri (5 points)
 def check_friendship(p1, p2):
+    """Natural-relationship score between two lords: 1.0/0.5/0.0."""
     if p1 == p2:
         return 1.0 # Same lord
     if p2 in NATURAL_FRIENDS.get(p1, []):
@@ -130,11 +193,14 @@ def check_friendship(p1, p2):
     return 0.5 # Neutral
 
 def calc_graha_maitri(m_sign, f_sign):
+    """Graha Maitri Kuta: maps the two-way lord friendship total onto 0-5 pts."""
+    _require_moon_sign(m_sign, "m_sign")
+    _require_moon_sign(f_sign, "f_sign")
     m_lord = SIGN_LORDS[m_sign]
     f_lord = SIGN_LORDS[f_sign]
     m_to_f = check_friendship(m_lord, f_lord)
     f_to_m = check_friendship(f_lord, m_lord)
-    
+
     total = m_to_f + f_to_m
     if total == 2.0: return 5.0
     if total == 1.5: return 4.0
@@ -144,6 +210,9 @@ def calc_graha_maitri(m_sign, f_sign):
 
 # 6. Gana (6 points)
 def calc_gana(m_nak_idx, f_nak_idx):
+    """Gana Kuta: temperament match (Deva/Manushya/Rakshasa) per BPHS table."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     m_gana = GANA[m_nak_idx]
     f_gana = GANA[f_nak_idx]
     if m_gana == f_gana: return 6.0
@@ -157,6 +226,9 @@ def calc_gana(m_nak_idx, f_nak_idx):
 
 # 7. Bhakoot (7 points)
 def calc_bhakoot(m_sign, f_sign):
+    """Bhakoot Kuta: 7.0 for 1/7, 3/11, 4/10 Moon-sign pairs, else 0.0."""
+    _require_moon_sign(m_sign, "m_sign")
+    _require_moon_sign(f_sign, "f_sign")
     m_idx = ZODIAC_SIGNS.index(m_sign)
     f_idx = ZODIAC_SIGNS.index(f_sign)
     diff = (f_idx - m_idx) % 12 + 1
@@ -166,6 +238,9 @@ def calc_bhakoot(m_sign, f_sign):
 
 # 8. Nadi (8 points)
 def calc_nadi(m_nak_idx, f_nak_idx):
+    """Nadi Kuta: 8.0 when nadis differ, 0.0 (Nadi Dosha) when identical."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     m_nadi = NADI[m_nak_idx]
     f_nadi = NADI[f_nak_idx]
     if m_nadi != f_nadi:
@@ -180,6 +255,8 @@ def calc_nadi(m_nak_idx, f_nak_idx):
 # 9. Mahendra Kuta — longevity and well-being
 def calc_mahendra(m_nak_idx, f_nak_idx):
     """Male's nakshatra counted from female's. Auspicious if 4,7,10,13,16,19,22,25."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     count = ((m_nak_idx - f_nak_idx) % 27) + 1
     return "good" if count in (4, 7, 10, 13, 16, 19, 22, 25) else "bad"
 
@@ -187,6 +264,8 @@ def calc_mahendra(m_nak_idx, f_nak_idx):
 # 10. Stree Deergha — husband's longevity
 def calc_stree_deergha(m_nak_idx, f_nak_idx):
     """Male's nakshatra must be >= 9 nakshatras from female's (counted f→m)."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     count = ((m_nak_idx - f_nak_idx) % 27) + 1
     return "good" if count >= 9 else "bad"
 
@@ -210,6 +289,8 @@ VEDHA_PAIRS = [
 
 def calc_vedha(m_nak_idx, f_nak_idx):
     """Check if male and female nakshatras form a hostile Vedha pair."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     for a, b in VEDHA_PAIRS:
         if (m_nak_idx == a and f_nak_idx == b) or (m_nak_idx == b and f_nak_idx == a):
             return "bad"
@@ -285,16 +366,32 @@ def calc_kuja_dosha(chart):
     chart: output from calculate_vedic_chart (needs planets with house and sign).
     Returns dict with total score and per-planet breakdown.
     """
+    if not isinstance(chart, dict) or not isinstance(chart.get("planets"), dict):
+        raise InvalidInputError("Invalid chart: must be a chart dict with a 'planets' mapping.")
     planets = chart.get("planets", {})
     total = 0.0
     breakdown = {}
     for p_name in ("Mars", "Saturn", "Rahu", "Ketu", "Sun"):
         pd = planets.get(p_name)
-        if not pd:
-            continue
-        score = _calc_dosha_score(p_name, pd["house"], pd["sign"])
+        if pd is None:
+            continue  # planet absent — nothing to score
+        if not isinstance(pd, dict):
+            # Present-but-malformed must not score a false 0 (non-manglik).
+            raise InvalidInputError(f"Invalid '{p_name}' entry: must be a dict.")
+        try:
+            house, sign = pd["house"], pd["sign"]
+        except KeyError as exc:
+            raise InvalidInputError(
+                f"Invalid '{p_name}' entry: missing 'house'/'sign' (partial data must not score 0).") from exc
+        _require_moon_sign(sign, f"'{p_name}' sign")
+        if isinstance(house, bool) or not isinstance(house, int) or not 1 <= house <= 12:
+            raise InvalidInputError(f"Invalid house for '{p_name}': {house!r}. Expected 1-12.")
+        try:
+            score = _calc_dosha_score(p_name, house, sign)
+        except TypeError as exc:
+            raise InvalidInputError(f"Invalid house/sign for '{p_name}': {house!r}/{sign!r}.") from exc
         if score > 0:
-            breakdown[p_name] = {"house": pd["house"], "sign": pd["sign"], "score": score}
+            breakdown[p_name] = {"house": house, "sign": sign, "score": score}
         total += score
     return {"total_score": round(total, 2), "breakdown": breakdown, "is_manglik": total > 0}
 
@@ -304,6 +401,9 @@ def match_kuja_dosha(male_score, female_score):
     Compare Kuja Dosha between male and female.
     |diff| <= 5: good. Female > male by > 5: bad. Male > female by > 5: check 25% threshold.
     """
+    for label, score in (("male_score", male_score), ("female_score", female_score)):
+        if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score):
+            raise InvalidInputError(f"Invalid {label} '{score}'. Must be a finite number.")
     diff = male_score - female_score
     if abs(diff) <= 5:
         return {"result": "good", "description": "Kuja Dosha balanced between partners."}
@@ -340,6 +440,8 @@ def _get_rajju_group(nak_idx):
 
 def calc_rajju(m_nak_idx, f_nak_idx):
     """Same Rajju group = bad; different = good."""
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
     m_group = _get_rajju_group(m_nak_idx)
     f_group = _get_rajju_group(f_nak_idx)
     if m_group and f_group and m_group == f_group:
@@ -353,6 +455,10 @@ def calc_bad_constellations(m_nak_idx, m_pada, f_nak_idx, f_pada):
     Only first pada of Moola/Ashlesha/Jyeshtha and 4th pada of Vishakha are bad.
     Ashlesha/Jyeshtha/Vishakha destructive only for females.
     """
+    _require_nak_idx(m_nak_idx, "m_nak_idx")
+    _require_nak_pada(m_pada, "m_pada")
+    _require_nak_idx(f_nak_idx, "f_nak_idx")
+    _require_nak_pada(f_pada, "f_pada")
     issues = []
     if m_nak_idx == 18 and m_pada == 1:
         issues.append("Male born in Moola 1st pada — risk to father-in-law.")
@@ -373,10 +479,13 @@ def calc_lagna_house7(chart1, chart2):
     Good if female's Moon sign = male's Lagna OR male's Moon sign = female's Lagna,
     OR if 7th house lords are exchanged.
     """
-    m_lagna = chart1.get("lagna", {}).get("sign")
-    f_lagna = chart2.get("lagna", {}).get("sign")
-    m_moon = chart1.get("planets", {}).get("Moon", {}).get("sign")
-    f_moon = chart2.get("planets", {}).get("Moon", {}).get("sign")
+    for label, chart in (("chart1", chart1), ("chart2", chart2)):
+        if not isinstance(chart, dict):
+            raise InvalidInputError(f"Invalid {label}: must be a chart dict.")
+    m_lagna = _safe_sign(chart1.get("lagna", {}), "chart1 lagna")
+    f_lagna = _safe_sign(chart2.get("lagna", {}), "chart2 lagna")
+    m_moon = _safe_sign(_safe_planets(chart1, "chart1").get("Moon", {}), "chart1 Moon")
+    f_moon = _safe_sign(_safe_planets(chart2, "chart2").get("Moon", {}), "chart2 Moon")
 
     if (f_moon and m_lagna and f_moon == m_lagna) or (m_moon and f_lagna and m_moon == f_lagna):
         return {"result": "good", "description": "Moon-Lagna cross match — mutual understanding and affection."}
@@ -388,8 +497,8 @@ def calc_lagna_house7(chart1, chart2):
         f_7th_sign = ZODIAC_SIGNS[(f_lagna_idx + 6) % 12]
         m_7th_lord = SIGN_LORDS[m_7th_sign]
         f_7th_lord = SIGN_LORDS[f_7th_sign]
-        m_7lord_sign = chart1.get("planets", {}).get(m_7th_lord, {}).get("sign")
-        f_7lord_sign = chart2.get("planets", {}).get(f_7th_lord, {}).get("sign")
+        m_7lord_sign = _safe_sign(_safe_planets(chart1, "chart1").get(m_7th_lord, {}), "chart1 7th lord")
+        f_7lord_sign = _safe_sign(_safe_planets(chart2, "chart2").get(f_7th_lord, {}), "chart2 7th lord")
         if m_7lord_sign == f_lagna or f_7lord_sign == m_lagna:
             return {"result": "good", "description": "7th house lord cross-placement — marriage stability."}
 
@@ -402,10 +511,25 @@ def calc_sex_energy(chart1, chart2):
     Mars/Venus in 7th = strong sex drive. Mercury/Jupiter in 7th = moderate.
     Mismatch between partners = potential incompatibility.
     """
+    for label, chart in (("chart1", chart1), ("chart2", chart2)):
+        if not isinstance(chart, dict):
+            raise InvalidInputError(f"Invalid {label}: must be a chart dict.")
+    for label, chart in (("chart1", chart1), ("chart2", chart2)):
+        _safe_planets(chart, label)
+
     def _classify(chart):
         planets = chart.get("planets", {})
-        strong = any(planets.get(p, {}).get("house") == 7 for p in ("Mars", "Venus"))
-        moderate = any(planets.get(p, {}).get("house") == 7 for p in ("Mercury", "Jupiter"))
+
+        def _house_of(name):
+            entry = planets.get(name, {})
+            if entry is None or entry == {}:
+                return None  # absent — contributes no signal
+            if not isinstance(entry, dict):
+                raise InvalidInputError(f"Invalid '{name}' entry: must be a dict.")
+            return entry.get("house")
+
+        strong = any(_house_of(p) == 7 for p in ("Mars", "Venus"))
+        moderate = any(_house_of(p) == 7 for p in ("Mercury", "Jupiter"))
         if strong and not moderate:
             return "strong"
         if moderate and not strong:
@@ -432,11 +556,17 @@ def calculate_ashtakoot(male_moon_lon: float, female_moon_lon: float,
     Calculates the 36-point Ashtakoot compatibility matching
     plus additional kutas (Mahendra, Stree Deergha, Vedha, Rajju, etc.).
     """
+    for label, lon in (("male_moon_lon", male_moon_lon), ("female_moon_lon", female_moon_lon)):
+        if isinstance(lon, bool) or not isinstance(lon, (int, float)) or not math.isfinite(lon):
+            raise InvalidInputError(f"Invalid {label} '{lon}'. Must be a finite number.")
+    for label, chart in (("male_chart", male_chart), ("female_chart", female_chart)):
+        if chart is not None and not isinstance(chart, dict):
+            raise InvalidInputError(f"Invalid {label}: must be a chart dict or None.")
     m_nak = get_nakshatra(male_moon_lon)
     f_nak = get_nakshatra(female_moon_lon)
     m_nak_idx = m_nak["index"]
     f_nak_idx = f_nak["index"]
-    
+
     m_sign_idx = int((male_moon_lon % 360) / 30)
     f_sign_idx = int((female_moon_lon % 360) / 30)
     m_sign = ZODIAC_SIGNS[m_sign_idx]
@@ -452,7 +582,7 @@ def calculate_ashtakoot(male_moon_lon: float, female_moon_lon: float,
         "Bhakoot": calc_bhakoot(m_sign, f_sign),
         "Nadi": calc_nadi(m_nak_idx, f_nak_idx),
     }
-    
+
     total_score = sum(scores.values())
 
     # Additional kutas
