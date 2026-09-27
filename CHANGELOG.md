@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Vimshopaka Bala (Shad-Varga 20-point strength with bands) wired into every chart.
+- Sodhita Ashtakavarga (Trikona + Ekadhipatya reductions) with Sodhya Pinda per planet.
+- Yogini Dasha (36-year cycle, Maha/Antar/Pratyantar + timeline).
+- Chara Dasha (Jaimini sign-to-lord method, verified against K.N. Rao's published Bachchan sequence).
 ## [1.2.0] - 2026-09-10
 
 ### Added

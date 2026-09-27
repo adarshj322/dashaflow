@@ -54,8 +54,7 @@ print(career["career_themes"])
 
 | Function | Description |
 |---|---|
-| `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more |
-| `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
+| `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more || `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
 | `calculate_compatibility(dob1, time1, lat1, lon1, tz1, dob2, time2, lat2, lon2, tz2)` | 36-point Ashtakoot + extended kutas + Kuja Dosha |
 | `check_muhurtha(activity, date, time, lat, lon, timezone)` | Electional astrology for 6 activity types |
 | `analyze_career(dob, time, lat, lon, timezone)` | D10 Dashamsha career analysis with theme recommendations |
@@ -68,7 +67,10 @@ from dashaflow.matchmaking import calculate_ashtakoot
 from dashaflow.shadbala import calculate_shadbala
 from dashaflow.jaimini import calculate_jaimini_karakas, calculate_arudha_padas
 from dashaflow.yoga import detect_yogas, detect_kaal_sarpa
-from dashaflow.ashtakavarga import calculate_ashtakavarga
+from dashaflow.ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
+from dashaflow.vimshopaka import calculate_vimshopaka
+from dashaflow.yogini import calculate_yogini_dasha
+from dashaflow.chara import calculate_chara_dasha
 from dashaflow.errors import DashaFlowError, InvalidInputError, EphemerisError, CalculationError
 from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 ```
@@ -81,11 +83,15 @@ from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 | `panchang` | Tithi, Vara, Nakshatra, Yoga, Karana |
 | `lagna` | Ascendant sign, degree, nakshatra, pada, D2–D60 signs |
 | `planets` | Per planet: sign, degree, degree_precise, house, nakshatra, pada, dignity, combustion, retrograde, digbala, aspects, 14 varga signs |
-| `dashas` | 5 levels: Maha, Antar, Pratyantar, Sukshma, Prana + 120-year timeline |
+| `dashas` | Vimshottari 5 levels: Maha, Antar, Pratyantar, Sukshma, Prana + 120-year timeline |
+| `yogini_dasha` | Yogini 36-year cycle (Maha, Antar, Pratyantar + timeline) |
+| `chara_dasha` | Jaimini Chara sign periods (Maha, Antar + timeline) |
 | `yogas` | ~20 named types across 24 detection sites (Raj Yoga and Dhana Yoga have multiple variants) with forming planets and descriptions |
 | `ashtakavarga` | SAV, BAV, Prashtara (source-level bindus) |
+| `sodhita_ashtakavarga` | Trikona + Ekadhipatya reduced BAVs/SAV + Sodhya Pinda |
 | `jaimini_karakas` | 7 Karakas by degree (Atmakaraka through Darakaraka) |
 | `shadbala` | Six-fold strength in Rupas + percentage + Ishta/Kashta Phala |
+| `vimshopaka` | Shad-Varga 20-point strength per planet with bands |
 | `bhava_chalit` | Equal-house Bhava Chalit with planet placements per bhava |
 | `avasthas` | Planetary age-states: Bala, Kumara, Yuva, Vriddha, Mrita |
 | `kaal_sarpa` | Kaal Sarpa Dosha detection (full/partial, ascending/descending) |
@@ -99,11 +105,13 @@ from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 
 - **Natal Chart** — Lagna, 9 grahas, whole-sign houses, nakshatras with padas, dignities
 - **14 Divisional Charts** — D2, D3, D4, D7, D9, D10, D12, D16, D20, D24, D27, D30, D40, D60
-- **Planetary Strength** — Dignity (B.V. Raman), combustion (BPHS orbs), Digbala, Shadbala (6-fold), Ishta/Kashta Phala
+- **Planetary Strength** — Dignity (B.V. Raman), combustion (BPHS orbs), Digbala, Shadbala (6-fold), Vimshopaka (20-pt), Ishta/Kashta Phala
 - **BPHS Aspects** — 7th for all, special aspects for Mars (4th/8th), Jupiter (5th/9th), Saturn (3rd/10th)
 - **Vimshottari Dasha** — 5 levels (Maha → Antar → Pratyantar → Sukshma → Prana), 120-year timeline
+- **Yogini Dasha** — 36-year Tantric cycle (Maha, Antar, Pratyantar)
+- **Chara Dasha** — Jaimini sign periods via sign-to-lord counts (K.N. Rao method)
 - **24 Yoga Detections** — Pancha Mahapurusha, Gajakesari, Budhaditya, Raj Yoga, Neecha Bhanga, Parivartana, Dhana, and more
-- **Ashtakavarga** — SAV, BAV, Prashtara (source-level bindu contributions)
+- **Ashtakavarga** — SAV, BAV, Prashtara (source-level bindu contributions), Sodhita reductions + Sodhya Pinda
 - **Jaimini** — 7 Karakas, Arudha Padas (A1–A12), Upapada Lagna, Karakamsha
 - **Compatibility** — 8 Ashtakoot kutas (36 pts) + Mahendra, Stree Deergha, Vedha, Rajju, Kuja Dosha
 - **Muhurtha** — 6 activity types with Panchang Suddhi and marriage doshas
@@ -126,8 +134,11 @@ dashaflow/
 ├── panchang.py         Tithi, Vara, Yoga, Karana
 ├── yoga.py             Yoga detections + Kaal Sarpa, Graha Yuddha, Gandanta
 ├── dasha.py            Vimshottari Dasha (5 levels)
+├── yogini.py           Yogini Dasha (36-year cycle)
+├── chara.py            Chara Dasha (Jaimini signs)
+├── vimshopaka.py       Shad-Varga 20-point strength
 ├── dignity.py          Dignity, combustion, digbala
-├── ashtakavarga.py     SAV, BAV, Prashtara
+├── ashtakavarga.py     SAV, BAV, Prashtara, Shodhana, Sodhya Pinda
 ├── jaimini.py          Karakas, Arudha Padas, Upapada, Karakamsha
 ├── shadbala.py         Six-fold strength + Ishta/Kashta Phala
 ├── matchmaking.py      16-factor compatibility + Kuja Dosha
@@ -173,6 +184,9 @@ This engine favors a lightweight, dependency-free design over exhaustive classic
 - **Kaal Sarpa** uses absolute longitudes (not sign-only); near-misses with one planet outside are reported as Partial.
 - **Shadbala** implements Uchcha/Saptavargaja/Ojayugma/Kendra/Drekkana + linear Dig Bala + Natonnata/Paksha/Ayana Kala Bala + speed-based Chesta Bala + fixed Naisargika Bala + midpoint-normalized Drik Bala. Hora/Masa/Varsha Bala and Shodhana reductions are omitted.
 - **Bhava Chalit** is the equal-house system from the Lagna midpoint (not Sripati/Bhava-Sandhi).
+- **Vimshopaka** uses the Shad-Varga scheme with Panchadha-Maitri grades; exalted/mooltrikona/own score full 20, debilitated floors at 5.
+- **Sodhita Ashtakavarga** follows Trikona + Ekadhipatya rules with 7-planet occupancy; Sodhya Pinda = Σ reduced bindus × Rashi Gunakar.
+- **Chara Dasha** uses sign-to-lord exclusive counts (Savya forward / Apasavya backward, own-sign lord = 12y) with dual-lord strength resolution; cycle direction from the 9th-from-Lagna rule.
 
 ## License
 

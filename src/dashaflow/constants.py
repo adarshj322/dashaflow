@@ -216,6 +216,35 @@ TRIKONA_HOUSES = {1, 5, 9}
 DUSTHANA_HOUSES = {6, 8, 12}
 
 # ==========================================
+# ASHTAKAVARGA SHODHANA
+# ==========================================
+
+# Elemental trikona groups (0-11 sign indices) for Trikona Shodhana.
+TRIKONA_GROUPS = [
+    (0, 4, 8),    # Fire: Aries, Leo, Sagittarius
+    (1, 5, 9),    # Earth: Taurus, Virgo, Capricorn
+    (2, 6, 10),   # Air: Gemini, Libra, Aquarius
+    (3, 7, 11),   # Water: Cancer, Scorpio, Pisces
+]
+
+# Dual-owned sign pairs (indices) + owning planet for Ekadhipatya Shodhana.
+# Sun (Leo) and Moon (Cancer) own single signs and are exempt.
+DUAL_LORD_PAIRS = [
+    ((0, 7), "Mars"),      # Aries + Scorpio
+    ((1, 6), "Venus"),     # Taurus + Libra
+    ((2, 5), "Mercury"),   # Gemini + Virgo
+    ((8, 11), "Jupiter"),  # Sagittarius + Pisces
+    ((9, 10), "Saturn"),   # Capricorn + Aquarius
+]
+
+# Rashi Gunakar (sign multipliers) for Sodhya Pinda.
+RASHI_GUNAKAR = {
+    "Aries": 7, "Taurus": 10, "Gemini": 8, "Cancer": 4,
+    "Leo": 10, "Virgo": 5, "Libra": 7, "Scorpio": 8,
+    "Sagittarius": 9, "Capricorn": 5, "Aquarius": 11, "Pisces": 12,
+}
+
+# ==========================================
 # DIGBALA (directional strength)
 # Houses where planets gain Digbala (1-indexed)
 # ==========================================

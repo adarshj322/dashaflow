@@ -51,8 +51,10 @@ def cast_chart(
     Cast a complete Vedic natal chart (Sidereal Lahiri ayanamsha).
 
     Returns a dict with: metadata, panchang, lagna, planets (with dignity,
-    combustion, aspects, 14 varga signs), dashas (5 levels), yogas (24 types),
-    ashtakavarga, jaimini_karakas, shadbala, bhava_chalit, avasthas,
+    combustion, aspects, 14 varga signs), dashas (Vimshottari, 5 levels),
+    yogini_dasha (36-year cycle), chara_dasha (Jaimini signs), yogas
+    (24 detections), ashtakavarga, sodhita_ashtakavarga (reduced + Pinda),
+    jaimini_karakas, shadbala, vimshopaka, bhava_chalit, avasthas,
     kaal_sarpa, graha_yuddha, gandanta, arudha_padas, upapada, karakamsha.
 
     Parameters

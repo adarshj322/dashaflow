@@ -467,3 +467,180 @@ class TestFailFastEntries:
         from dashaflow.matchmaking import calc_sex_energy
         with pytest.raises(InvalidInputError):
             calc_sex_energy({"planets": {"Mars": "oops"}}, {"planets": {}})
+
+
+class TestVimshopaka:
+    def test_all_own_is_20(self):
+        from dashaflow.vimshopaka import calculate_vimshopaka
+        pd = {"Sun": {"sign": "Leo", "d2_sign": "Leo", "d3_sign": "Leo",
+                      "d9_sign": "Leo", "d12_sign": "Leo", "d30_sign": "Leo"}}
+        res = calculate_vimshopaka(pd, {"Sun": 4})
+        assert res["Sun"]["total_20"] == 20.0
+        assert res["Sun"]["band"] == "extra"
+
+    def test_all_debilitated_floor(self):
+        from dashaflow.vimshopaka import calculate_vimshopaka
+        pd = {"Sun": {"sign": "Libra", "d2_sign": "Libra", "d3_sign": "Libra",
+                      "d9_sign": "Libra", "d12_sign": "Libra", "d30_sign": "Libra"}}
+        res = calculate_vimshopaka(pd, {"Sun": 6})
+        assert res["Sun"]["total_20"] == 5.0
+        assert res["Sun"]["band"] == "weak"
+
+    def test_weights_sum_to_20(self):
+        from dashaflow.vimshopaka import VIMSHOPAKA_WEIGHTS
+        assert sum(VIMSHOPAKA_WEIGHTS.values()) == 20.0
+
+    def test_chart_wiring(self):
+        import dashaflow
+        chart = dashaflow.cast_chart("1990-04-15", "14:30", 28.61, 77.21,
+                                     "Asia/Kolkata", query_date="2026-01-01")
+        vim = chart["vimshopaka"]
+        assert set(vim) == {"Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"}
+        for data in vim.values():
+            assert 0 <= data["total_20"] <= 20.0
+            assert data["band"] in ("nil", "weak", "medium", "full", "extra")
+
+
+class TestShodhana:
+    def test_trikona_worked_vectors(self):
+        from dashaflow.ashtakavarga import trikona_shodhana as tri
+        fire = [0] * 12
+        fire[0], fire[4], fire[8] = 5, 4, 5
+        r = tri(fire)
+        assert (r[0], r[4], r[8]) == (1, 0, 1)
+        earth = [0] * 12
+        earth[1], earth[5] = 3, 4  # zero present → unchanged
+        r = tri(earth)
+        assert (r[1], r[5], r[9]) == (3, 4, 0)
+        water = [0] * 12
+        water[3] = water[7] = water[11] = 3  # all equal → zeroed
+        r = tri(water)
+        assert (r[3], r[7], r[11]) == (0, 0, 0)
+
+    def test_ekadhipatya_worked_vectors(self):
+        from dashaflow.ashtakavarga import ekadhipatya_shodhana as eka
+        mars = [0] * 12
+        mars[0] = mars[7] = 1  # equal, Scorpio occupied → Aries eliminated
+        r = eka(mars, {7})
+        assert (r[0], r[7]) == (0, 1)
+        both_empty = [0] * 12
+        both_empty[8], both_empty[11] = 1, 3  # unequal → both smaller
+        r = eka(both_empty, set())
+        assert (r[8], r[11]) == (1, 1)
+        both_occ = [0] * 12
+        both_occ[1], both_occ[6] = 2, 4
+        r = eka(both_occ, {1, 6})  # both occupied → unchanged
+        assert (r[1], r[6]) == (2, 4)
+
+    def test_sodhita_chart_invariants(self):
+        import dashaflow
+        chart = dashaflow.cast_chart("1990-04-15", "14:30", 28.61, 77.21,
+                                     "Asia/Kolkata", query_date="2026-01-01")
+        sod = chart["sodhita_ashtakavarga"]
+        assert sod["sodhita_total"] <= 337
+        assert sod["sodhita_total"] > 0
+        assert set(sod["sodhya_pinda"]) == {"Sun", "Moon", "Mars", "Mercury",
+                                            "Jupiter", "Venus", "Saturn"}
+        assert all(v >= 0 for v in sod["sodhya_pinda"].values())
+        assert set(sod["sodhita_sarvashtakavarga"]) == {
+            "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
+            "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"}
+
+
+class TestYoginiDasha:
+    def test_start_mapping(self):
+        from dashaflow.yogini import YOGINIS, _start_index
+        # (nak_idx_0based, expected) from three independent references.
+        for idx, exp in [(0, "Bhramari"), (1, "Bhadrika"), (2, "Ulka"),
+                         (3, "Siddha"), (4, "Sankata"), (16, "Bhramari")]:
+            assert YOGINIS[_start_index(idx)][0] == exp
+
+    def test_balance_worked_example(self):
+        # Moon Scorpio 10° (Anuradha): 2-year Bhramari balance per published example.
+        import datetime
+        from dashaflow.yogini import calculate_yogini_dasha
+        d = calculate_yogini_dasha(220.0, datetime.datetime(1990, 4, 15),
+                                   datetime.datetime(1990, 4, 15))
+        first = d["timeline"][0]
+        assert first["yogini"] == "Bhramari" and first["lord"] == "Mars"
+        assert first["start"] == "1990-04-15" and first["end"] == "1992-04-14"
+
+    def test_cycle_sums_to_36(self):
+        import datetime
+        from dashaflow.yogini import calculate_yogini_dasha
+        d = calculate_yogini_dasha(0.0, datetime.datetime(1990, 4, 15),
+                                   datetime.datetime(1990, 4, 15))
+        full_round = d["timeline"][1:9]  # skip partial first period
+        assert [t["yogini"] for t in full_round] == ["Bhadrika", "Ulka", "Siddha",
+                                                     "Sankata", "Mangala", "Pingala",
+                                                     "Dhanya", "Bhramari"]
+        from dashaflow.yogini import YOGINI_YEARS
+        assert sum(YOGINI_YEARS[t["yogini"]] for t in full_round) == 36.0
+
+    def test_active_levels_resolve(self):
+        import datetime
+        from dashaflow.yogini import calculate_yogini_dasha
+        d = calculate_yogini_dasha(100.0, datetime.datetime(1990, 4, 15),
+                                   datetime.datetime(2000, 6, 1))
+        assert d["maha"] and d["antar"] and d["pratyantar"]
+        assert d["maha"]["yogini"] in [y[0] for y in
+                                       __import__("dashaflow.yogini", fromlist=["YOGINIS"]).YOGINIS]
+
+
+class TestCharaDasha:
+    BACHCHAN_POS = {"Sun": 5, "Moon": 6, "Mars": 5, "Mercury": 5, "Jupiter": 3,
+                    "Venus": 5, "Saturn": 1, "Rahu": 4, "Ketu": 10}
+
+    def test_bachchan_published_sequence(self):
+        # K.N. Rao's Amitabh Bachchan Chara sequence (Aquarius Lagna).
+        import datetime
+        from dashaflow.chara import calculate_chara_dasha
+        d = calculate_chara_dasha("Aquarius", datetime.datetime(1942, 10, 11),
+                                  datetime.datetime(1942, 10, 11), self.BACHCHAN_POS)
+        assert d["direction"] == "zodiacal"
+        expected = [("Aquarius", "1942"), ("Pisces", "1951"), ("Aries", "1959"),
+                    ("Taurus", "1964"), ("Gemini", "1968"), ("Cancer", "1971"),
+                    ("Leo", "1980"), ("Virgo", "1991"), ("Libra", "2003"),
+                    ("Scorpio", "2014")]
+        for got, (sign, year) in zip(d["timeline"][:10], expected):
+            assert got["sign"] == sign and got["start"][:4] == year
+
+    def test_reverse_direction(self):
+        import datetime
+        from dashaflow.chara import calculate_chara_dasha
+        pos = {"Sun": 0, "Moon": 0, "Mars": 0, "Mercury": 0, "Jupiter": 0,
+               "Venus": 0, "Saturn": 0, "Rahu": 0, "Ketu": 6}
+        d = calculate_chara_dasha("Cancer", datetime.datetime(1990, 4, 15),
+                                  datetime.datetime(1990, 4, 15), pos)
+        assert d["direction"] == "reverse"  # 9th from Cancer is Pisces (Apasavya)
+        assert d["timeline"][0]["sign"] == "Cancer"
+        assert d["timeline"][1]["sign"] == "Gemini"
+
+    def test_chart_wiring(self):
+        import dashaflow
+        chart = dashaflow.cast_chart("1990-04-15", "14:30", 28.61, 77.21,
+                                     "Asia/Kolkata", query_date="2026-01-01")
+        assert chart["chara_dasha"]["maha"]["sign"]
+        assert chart["yogini_dasha"]["maha"]["yogini"]
+
+
+class TestCharaHorizonGuard:
+    # Positions engineered for small durations (~45y/cycle): the old
+    # 30-iteration guard covered only ~112y, dropping far queries.
+    SMALL_POS = {"Sun": 3, "Moon": 2, "Mars": 1, "Mercury": 3, "Jupiter": 4,
+                 "Venus": 2, "Saturn": 5, "Rahu": 8, "Ketu": 2}
+
+    def test_far_query_resolves(self):
+        import datetime
+        from dashaflow.chara import calculate_chara_dasha
+        birth = datetime.datetime(2000, 1, 1)
+        d = calculate_chara_dasha("Aries", birth, datetime.datetime(2119, 6, 1),
+                                  self.SMALL_POS)
+        assert len(d["timeline"]) > 30
+        assert d["maha"] is not None and d["maha"]["sign"]
+
+    def test_dual_lord_primary_on_tie(self):
+        from dashaflow.chara import _resolve_lord
+        # Mars and Ketu both neutral here → primary (Mars) wins ties.
+        lord, pos = _resolve_lord(7, {"Mars": 1, "Ketu": 2})
+        assert (lord, pos) == ("Mars", 1)

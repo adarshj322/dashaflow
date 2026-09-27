@@ -8,7 +8,8 @@ import pytz
 import swisseph as swe
 
 from ._version import __version__
-from .ashtakavarga import calculate_ashtakavarga
+from .ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
+from .chara import calculate_chara_dasha
 from .constants import PLANETS, ZODIAC_SIGNS
 from .dasha import calculate_dashas
 from .dignity import check_combustion, get_digbala, get_dignity
@@ -22,7 +23,9 @@ from .jaimini import (
 from .nakshatra import get_nakshatra
 from .panchang import calculate_panchang
 from .shadbala import calculate_shadbala
+from .vimshopaka import calculate_vimshopaka
 from .yoga import detect_gandanta, detect_graha_yuddha, detect_kaal_sarpa, detect_yogas
+from .yogini import calculate_yogini_dasha
 
 logger = logging.getLogger(__name__)
 
@@ -548,8 +551,9 @@ def calculate_avasthas(planets_data: dict, raw_planets: dict) -> dict:
 
 
 _REQUIRED_TOP_KEYS = frozenset({
-    "metadata", "panchang", "lagna", "planets", "dashas", "yogas",
-    "ashtakavarga", "jaimini_karakas", "shadbala", "bhava_chalit",
+    "metadata", "panchang", "lagna", "planets", "dashas", "yogini_dasha",
+    "chara_dasha", "yogas", "ashtakavarga", "sodhita_ashtakavarga",
+    "jaimini_karakas", "shadbala", "vimshopaka", "bhava_chalit",
     "avasthas", "kaal_sarpa", "graha_yuddha", "gandanta",
     "arudha_padas", "upapada", "karakamsha",
 })
@@ -682,6 +686,11 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
 
     dasha_data = calculate_dashas(moon_lon, birth_dt_naive, query_dt)
 
+    # --- Yogini + Chara dashas (corroborating timing systems) ---
+    yogini_data = calculate_yogini_dasha(moon_lon, birth_dt_naive, query_dt)
+    planets_in_signs = {name: rp["sign_idx"] for name, rp in raw_planets.items()}
+    chara_data = calculate_chara_dasha(asc_sign, birth_dt_naive, query_dt, planets_in_signs)
+
     # --- Yogas ---
     yogas = detect_yogas(planets_for_yoga, asc_sign)
 
@@ -694,9 +703,12 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
         _configure_swiss_ephemeris(ephe_path)
         panchang_data = calculate_panchang(jd, sun_lon, moon_lon, lat, lon)
 
-    # --- Ashtakavarga ---
+    # --- Ashtakavarga (raw + Sodhita reductions + Sodhya Pinda) ---
     sav_planets = {name: rp["sign_idx"] for name, rp in raw_planets.items() if name in ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"]}
     ashtakavarga_data = calculate_ashtakavarga(sav_planets, asc_sign_idx)
+    occupied = {rp["sign_idx"] for name, rp in raw_planets.items()
+                if name in ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn")}
+    sodhita_data = calculate_sodhita_ashtakavarga(sav_planets, asc_sign_idx, occupied)
 
     # --- Assemble output ---
     jaimini_karakas = calculate_jaimini_karakas(planets_output)
@@ -732,10 +744,14 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
         },
         "planets": planets_output,
         "dashas": dasha_data,
+        "yogini_dasha": yogini_data,
+        "chara_dasha": chara_data,
         "yogas": yogas,
         "ashtakavarga": ashtakavarga_data,
+        "sodhita_ashtakavarga": sodhita_data,
         "jaimini_karakas": jaimini_karakas,
         "shadbala": calculate_shadbala(planets_output, raw_planets, is_day_birth=((asc_lon - sun_lon + 360) % 360) < 180),
+        "vimshopaka": calculate_vimshopaka(planets_output, planets_in_signs),
         "bhava_chalit": calculate_bhava_chalit(asc_lon, raw_planets),
         "avasthas": calculate_avasthas(planets_output, raw_planets),
         "kaal_sarpa": detect_kaal_sarpa(raw_planets),

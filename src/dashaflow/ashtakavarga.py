@@ -1,4 +1,4 @@
-from .constants import ZODIAC_SIGNS
+from .constants import DUAL_LORD_PAIRS, RASHI_GUNAKAR, TRIKONA_GROUPS, ZODIAC_SIGNS
 
 # 1-indexed houses from the placement of the planet
 ASHTAKAVARGA_TABLES = {
@@ -109,10 +109,10 @@ def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int) -> d
                 target_sign_idx = (source_idx + (h - 1)) % 12
                 bav[target_planet][target_sign_idx] += 1
                 sav[target_sign_idx] += 1
-                
+
     # Return as a dict mapped to Zodiac Sign names for easier LLM reading
     sav_dict = {ZODIAC_SIGNS[i]: sav[i] for i in range(12)}
-    
+
     bav_dict = {}
     for p, arr in bav.items():
         bav_dict[p] = {ZODIAC_SIGNS[i]: arr[i] for i in range(12)}
@@ -138,4 +138,115 @@ def calculate_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int) -> d
         "bhinnashtakavarga": bav_dict,
         "prashtarashtakavarga": prashtara,
         "total_bindus": sum(sav) # Should be 337
+    }
+
+
+def trikona_shodhana(bav_12: list) -> list:
+    """
+    Trikona Shodhana (I Reduction) on one 12-sign BAV array.
+
+    Per elemental trikona: all-different → subtract the minimum from all
+    three; one zero → no reduction; two zeros → all zero; all equal → all zero.
+    """
+    out = list(bav_12)
+    for a, b, c in TRIKONA_GROUPS:
+        vals = (out[a], out[b], out[c])
+        zeros = sum(1 for v in vals if v == 0)
+        if zeros == 1:
+            continue  # Rule (b): no reduction
+        if zeros == 2:
+            out[a] = out[b] = out[c] = 0  # Rule (c)
+        elif vals[0] == vals[1] == vals[2]:
+            out[a] = out[b] = out[c] = 0  # Rule (d)
+        else:
+            m = min(vals)  # Rule (a)
+            out[a] -= m
+            out[b] -= m
+            out[c] -= m
+    return out
+
+
+def ekadhipatya_shodhana(bav_12: list, occupied: set) -> list:
+    """
+    Ekadhipatya Shodhana (II Reduction) on a Trikona-reduced BAV array.
+
+    Applies to dual-owned sign pairs only (Sun/Moon exempt). Occupancy =
+    physical presence of a planet in the birth chart.
+    I(a) both occupied → none; I(b) either zero → none;
+    II(a) occupied > unoccupied → unoccupied eliminated;
+    II(b) occupied < unoccupied → unoccupied set to occupied value;
+    II(c) equal → unoccupied eliminated;
+    III(a) both empty + equal → both zero;
+    III(b) both empty + unequal → both set to the smaller.
+    """
+    out = list(bav_12)
+    for (s1, s2), _lord in DUAL_LORD_PAIRS:
+        v1, v2 = out[s1], out[s2]
+        if v1 == 0 or v2 == 0:
+            continue  # I(b): no reduction
+        o1, o2 = (s1 in occupied), (s2 in occupied)
+        if o1 and o2:
+            continue  # I(a): no reduction
+        if o1 and not o2:
+            occ, unocc = s1, s2
+        elif o2 and not o1:
+            occ, unocc = s2, s1
+        else:
+            # III: both empty — equal → both zero, else both = smaller.
+            if v1 == v2:
+                out[s1] = out[s2] = 0  # III(a)
+            else:
+                m = min(v1, v2)
+                out[s1] = out[s2] = m  # III(b)
+            continue
+        # II: one occupied — compare with the unoccupied sign.
+        if out[occ] > out[unocc]:
+            out[unocc] = 0  # II(a)
+        elif out[occ] < out[unocc]:
+            out[unocc] = out[occ]  # II(b)
+        else:
+            out[unocc] = 0  # II(c)
+    return out
+
+
+def calculate_sodhita_ashtakavarga(planets_in_signs: dict, ascendant_sign_idx: int,
+                                   occupied_signs: set = None) -> dict:
+    """
+    Sodhita (reduced) Ashtakavarga: Trikona then Ekadhipatya Shodhana
+    per BAV, plus Sodhya Pinda per planet.
+
+    Parameters
+    ----------
+    planets_in_signs : dict — {planet: 0-11 sign_idx} (7 grahas).
+    ascendant_sign_idx : int — Lagna sign 0-11.
+    occupied_signs : set, optional — birth-chart occupied sign indices
+        (defaults to the 7 planets' own signs; Rahu/Ketu excluded).
+
+    Returns
+    -------
+    dict with sodhita BAVs, sodhita SAV (sign→bindus), reduced total,
+    and Sodhya Pinda per planet (Σ shodhita bindus × Rashi Gunakar).
+    """
+    base = calculate_ashtakavarga(planets_in_signs, ascendant_sign_idx)
+    if occupied_signs is None:
+        occupied_signs = {planets_in_signs[p] for p in
+                          ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn")
+                          if p in planets_in_signs}
+
+    sodhita_bav = {}
+    for planet, sign_map in base["bhinnashtakavarga"].items():
+        arr = [sign_map[ZODIAC_SIGNS[i]] for i in range(12)]
+        arr = ekadhipatya_shodhana(trikona_shodhana(arr), occupied_signs)
+        sodhita_bav[planet] = {ZODIAC_SIGNS[i]: arr[i] for i in range(12)}
+
+    sodhita_sav = {sign: sum(sodhita_bav[p][sign] for p in sodhita_bav) for sign in ZODIAC_SIGNS}
+    sodhya_pinda = {}
+    for planet, sign_map in sodhita_bav.items():
+        sodhya_pinda[planet] = sum(sign_map[sign] * RASHI_GUNAKAR[sign] for sign in ZODIAC_SIGNS)
+
+    return {
+        "sodhita_bhinnashtakavarga": sodhita_bav,
+        "sodhita_sarvashtakavarga": sodhita_sav,
+        "sodhita_total": sum(sodhita_sav.values()),
+        "sodhya_pinda": sodhya_pinda,
     }

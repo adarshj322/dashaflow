@@ -23,3 +23,9 @@ env/
 *.swp
 *.swo
 *~
+
+# hyperresearch vault (local research setup, not part of the package)
+.claude/
+.hyperresearch/
+CLAUDE.md
+research/
