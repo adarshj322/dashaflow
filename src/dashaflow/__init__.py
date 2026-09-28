@@ -23,6 +23,8 @@ from .matchmaking import calculate_ashtakoot, calc_kuja_dosha, match_kuja_dosha
 from .muhurtha import evaluate_muhurtha, ACTIVITY_RULES
 from .career import analyze_career as _career_analyze_internal
 from .constants import ZODIAC_SIGNS
+from .access import summarize_chart, get_dasha_periods, get_strength_table, get_yoga_list
+from . import schemas as schemas
 
 __all__ = [
     "__version__",
@@ -31,10 +33,16 @@ __all__ = [
     "EphemerisError",
     "CalculationError",
     "cast_chart",
+    "cast_charts",
     "cast_transit",
     "calculate_compatibility",
     "check_muhurtha",
     "analyze_career",
+    "summarize_chart",
+    "get_dasha_periods",
+    "get_strength_table",
+    "get_yoga_list",
+    "schemas",
 ]
 
 
@@ -96,6 +104,55 @@ def cast_chart(
         query_date_str=query_date,
         ephe_path=ephe_path,
     )
+
+
+def cast_charts(
+    births: list,
+    query_date: str = None,
+    ephe_path: str = '',
+    max_workers: int = 4,
+) -> list:
+    """
+    Cast multiple natal charts (batch API for agents).
+
+    Parameters
+    ----------
+    births : list
+        Each entry is a (dob, time, lat, lon, timezone) tuple.
+    query_date : str, optional
+        Shared Dasha lookup date as "YYYY-MM-DD". Defaults to today.
+    ephe_path : str, optional
+        Path to Swiss Ephemeris data files. Defaults to '' (bundled).
+    max_workers : int, optional
+        Thread pool size. Defaults to 4.
+
+    Returns
+    -------
+    list
+        One chart dict per input, in input order. Equivalent to calling
+        cast_chart once per birth (the engine is thread-safe).
+    """
+    import concurrent.futures
+
+    validate_query_date(query_date, "query_date")
+    validate_ephe_path(ephe_path)
+    for entry in births:
+        if len(entry) != 5:
+            raise InvalidInputError(
+                f"Invalid birth entry {entry!r}. Expected "
+                "(dob, time, lat, lon, timezone).")
+        validate_birth_input(*entry)
+
+    def _one(entry):
+        dob, time, lat, lon, timezone = entry
+        return calculate_vedic_chart(
+            dob_str=dob, time_str=time, lat=lat, lon=lon,
+            timezone_str=timezone, query_date_str=query_date,
+            ephe_path=ephe_path,
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        return list(pool.map(_one, births))
 
 
 def cast_transit(
