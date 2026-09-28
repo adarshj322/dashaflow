@@ -7,6 +7,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Access shape for AI consumers: `summarize_chart` (compact <4KB projection with drill-down pointers; `detail="full"` passthrough), `get_dasha_periods`, `get_strength_table`, `get_yoga_list`, and `cast_charts` batch API.
+- `dashaflow.schemas`: published JSON Schemas for all outputs + `validate()` helper (optional `jsonschema` dependency, now in test/dev extras).
 - Vimshopaka Bala (Shad-Varga 20-point strength with bands) wired into every chart.
 - Sodhita Ashtakavarga (Trikona + Ekadhipatya reductions) with Sodhya Pinda per planet.
 - Yogini Dasha (36-year cycle, Maha/Antar/Pratyantar + timeline).
