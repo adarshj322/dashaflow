@@ -15,13 +15,19 @@ documented per-function. All values are in Shashtiamshas (60ths of a Rupa).
 1 Rupa = 60 Shashtiamshas.
 """
 
-from .constants import (
-    ZODIAC_SIGNS, EXALTATION, DEBILITATION, OWN_SIGNS,
-    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES,
-    DIGBALA_HOUSES, SIGN_LORDS
-)
 import math
 
+from .constants import (
+    DEBILITATION,
+    DIGBALA_HOUSES,
+    EXALTATION,
+    MOOLTRIKONA,
+    NATURAL_ENEMIES,
+    NATURAL_FRIENDS,
+    OWN_SIGNS,
+    SIGN_LORDS,
+    ZODIAC_SIGNS,
+)
 
 # ============================================================
 # 1. STHANA BALA (Positional Strength)
@@ -382,13 +388,13 @@ REQUIRED_SHADBALA = {
 def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool = True):
     """
     Calculates the six-fold strength for all 7 planets.
-    
+
     Parameters
     ----------
     planets_data : dict — The enriched 'planets' output from calculate_vedic_chart
     raw_planets : dict — The raw planet data with 'lon', 'sign_idx', 'speed'
     is_day_birth : bool — Whether birth occurred during daytime
-    
+
     Returns
     -------
     dict: Shadbala breakdown for each planet with total in Shashtiamshas and Rupas.

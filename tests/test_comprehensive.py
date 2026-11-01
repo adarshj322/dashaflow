@@ -18,43 +18,55 @@ Testing Strategy:
   - Unit-test pure functions (divisional charts, nakshatra math)
 """
 
-import unittest
 import datetime
+import unittest
 
+from dashaflow.career import analyze_career
 from dashaflow.constants import (
-    ZODIAC_SIGNS, SIGN_LORDS, NAKSHATRAS, NAK_SPAN, PADA_SPAN,
-    VIMSHOTTARI_YEARS, VIMSHOTTARI_TOTAL, DASHA_SEQUENCE,
-    EXALTATION, DEBILITATION, OWN_SIGNS, MOOLTRIKONA,
-    NATURAL_FRIENDS, NATURAL_ENEMIES, COMBUSTION_ORBS,
-    TITHI_NAMES, VARA_NAMES, VARA_LORDS, PANCHANG_YOGA_NAMES,
+    COMBUSTION_ORBS,
+    DASHA_SEQUENCE,
+    DEBILITATION,
     DIGBALA_HOUSES,
+    EXALTATION,
+    MOOLTRIKONA,
+    NAK_SPAN,
+    NAKSHATRAS,
+    OWN_SIGNS,
+    PADA_SPAN,
+    SIGN_LORDS,
+    TITHI_NAMES,
+    VARA_LORDS,
+    VARA_NAMES,
+    VIMSHOTTARI_TOTAL,
+    VIMSHOTTARI_YEARS,
+    ZODIAC_SIGNS,
 )
-from dashaflow.nakshatra import get_nakshatra
-from dashaflow.vedic_calculator import (
-    get_sign_and_degree, calculate_navamsha, calculate_d2_hora,
-    calculate_dashamsha, calculate_d3_drekkana, calculate_d4_chaturthamsha,
-    calculate_d7_saptamsha, calculate_d12_dwadashamsha,
-    calculate_d16_shodashamsha, calculate_d20_vimshamsha,
-    calculate_d24_chaturvimshamsha, calculate_d27_bhamsha,
-    calculate_d30_trimshamsha, calculate_d40_khavedamsha,
-    calculate_d60_shashtiamsha, get_vedic_aspects, _house_from_lagna,
-    calculate_bhava_chalit, calculate_avasthas,
-    calculate_vedic_chart,
-)
-from dashaflow.dignity import get_dignity, check_combustion, get_digbala
-from dashaflow.dasha import calculate_dashas
-from dashaflow.panchang import calculate_panchang
-from dashaflow.ashtakavarga import calculate_ashtakavarga
-from dashaflow.jaimini import (
-    calculate_jaimini_karakas, calculate_arudha_padas,
-    calculate_upapada, calculate_karakamsha,
-)
-from dashaflow.shadbala import calculate_shadbala
-from dashaflow.yoga import detect_yogas, detect_kaal_sarpa, detect_graha_yuddha, detect_gandanta
+from dashaflow.dignity import check_combustion, get_digbala
 from dashaflow.matchmaking import calculate_ashtakoot
 from dashaflow.muhurtha import evaluate_muhurtha
-from dashaflow.career import analyze_career
-
+from dashaflow.nakshatra import get_nakshatra
+from dashaflow.vedic_calculator import (
+    _house_from_lagna,
+    calculate_avasthas,
+    calculate_d2_hora,
+    calculate_d3_drekkana,
+    calculate_d4_chaturthamsha,
+    calculate_d7_saptamsha,
+    calculate_d12_dwadashamsha,
+    calculate_d16_shodashamsha,
+    calculate_d20_vimshamsha,
+    calculate_d24_chaturvimshamsha,
+    calculate_d27_bhamsha,
+    calculate_d30_trimshamsha,
+    calculate_d40_khavedamsha,
+    calculate_d60_shashtiamsha,
+    calculate_dashamsha,
+    calculate_navamsha,
+    calculate_vedic_chart,
+    get_sign_and_degree,
+    get_vedic_aspects,
+)
+from dashaflow.yoga import detect_gandanta, detect_graha_yuddha, detect_kaal_sarpa, detect_yogas
 
 # ===================================================================
 # LAZY CHART CACHING -- cast once, reuse across all tests
@@ -794,7 +806,7 @@ class TestBVRArudhaPadas(unittest.TestCase):
         self.assertEqual(al["sign"], "Pisces")
 
     def test_pada_structure(self):
-        for house, pada in bvr()["arudha_padas"].items():
+        for _house, pada in bvr()["arudha_padas"].items():
             self.assertIn("sign", pada)
             self.assertIn("name", pada)
 
@@ -843,7 +855,7 @@ class TestBVRBhavaChalit(unittest.TestCase):
         self.assertEqual(bvr()["bhava_chalit"]["Sun"]["bhava_house"], 9)
 
     def test_shifted_flag_boolean(self):
-        for name, data in bvr()["bhava_chalit"].items():
+        for _name, data in bvr()["bhava_chalit"].items():
             self.assertIsInstance(data["shifted"], bool)
 
     def test_rashi_house_matches_planet_house(self):
@@ -874,11 +886,11 @@ class TestBVRAvasthas(unittest.TestCase):
         self.assertEqual(bvr()["avasthas"]["Mars"]["avastha"], "Vriddha")
 
     def test_all_avasthas_valid(self):
-        for name, data in bvr()["avasthas"].items():
+        for _name, data in bvr()["avasthas"].items():
             self.assertIn(data["avastha"], self.VALID_AVASTHAS)
 
     def test_strength_factor_positive(self):
-        for name, data in bvr()["avasthas"].items():
+        for _name, data in bvr()["avasthas"].items():
             self.assertGreater(data["strength_factor"], 0)
 
     def test_yuva_pure_function(self):
@@ -1031,16 +1043,16 @@ class TestBVRShadbala(unittest.TestCase):
                 self.assertIn(key, data, f"{planet} missing {key}")
 
     def test_positive_total_rupas(self):
-        for planet, data in bvr()["shadbala"].items():
+        for _planet, data in bvr()["shadbala"].items():
             self.assertGreater(data["total_rupas"], 0)
 
     def test_strength_ratio_present(self):
-        for planet, data in bvr()["shadbala"].items():
+        for _planet, data in bvr()["shadbala"].items():
             self.assertIn("strength_ratio", data)
             self.assertGreater(data["strength_ratio"], 0)
 
     def test_ishta_kashta_at_top_level(self):
-        for planet, data in bvr()["shadbala"].items():
+        for _planet, data in bvr()["shadbala"].items():
             self.assertIn("ishta_phala", data)
             self.assertIn("kashta_phala", data)
             self.assertGreaterEqual(data["ishta_phala"], 0)
@@ -1096,12 +1108,12 @@ class TestBVRFullChart(unittest.TestCase):
                 self.assertIn(data[v], ZODIAC_SIGNS, f"{name} {v}='{data[v]}' invalid")
 
     def test_degree_range_0_to_30(self):
-        for name, data in bvr()["planets"].items():
+        for _name, data in bvr()["planets"].items():
             self.assertGreaterEqual(data["degree"], 0)
             self.assertLess(data["degree"], 30)
 
     def test_house_range_1_to_12(self):
-        for name, data in bvr()["planets"].items():
+        for _name, data in bvr()["planets"].items():
             self.assertGreaterEqual(data["house"], 1)
             self.assertLessEqual(data["house"], 12)
 
@@ -1247,7 +1259,7 @@ class TestTransit(unittest.TestCase):
     def test_transit_planet_fields(self):
         from dashaflow.vedic_calculator import calculate_transit
         transit = calculate_transit("2025-01-01", bvr(), "Asia/Kolkata")
-        for name, data in transit["planets"].items():
+        for _name, data in transit["planets"].items():
             self.assertIn("sign", data)
             self.assertIn("degree", data)
 

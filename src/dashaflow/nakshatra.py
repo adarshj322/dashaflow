@@ -1,4 +1,4 @@
-from .constants import NAKSHATRAS, NAK_SPAN, PADA_SPAN
+from .constants import NAK_SPAN, NAKSHATRAS, PADA_SPAN
 
 
 def get_nakshatra(longitude: float) -> dict:

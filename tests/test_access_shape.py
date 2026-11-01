@@ -88,7 +88,7 @@ class TestCastChartsBatch:
         ]
         results = dashaflow.cast_charts(births, query_date="2026-01-01")
         assert len(results) == 2
-        for (dob, t, la, lo, tz), chart in zip(births, results):
+        for (dob, t, la, lo, tz), chart in zip(births, results, strict=False):
             single = dashaflow.cast_chart(dob, t, la, lo, tz, query_date="2026-01-01")
             single["metadata"].pop("computed_at_utc")
             chart["metadata"].pop("computed_at_utc")

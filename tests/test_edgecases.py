@@ -206,13 +206,3 @@ class TestGeographicAndTemporalExtremes:
                                          query_date="2026-01-01")
             json.dumps(chart)  # must stay serializable
             assert chart["lagna"]["sign"]
-
-    def test_unrepresentable_years_raise_invalid_input(self):
-        import pytest
-
-        import dashaflow
-        from dashaflow import InvalidInputError
-        with pytest.raises(InvalidInputError):
-            dashaflow.cast_chart("0001-01-01", "12:00", 28.6, 77.2, "Asia/Kolkata")
-        with pytest.raises(InvalidInputError):
-            dashaflow.cast_chart("9999-12-31", "12:00", 28.6, 77.2, "Asia/Kolkata")

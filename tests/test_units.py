@@ -449,12 +449,14 @@ class TestFailFastEntries:
 
     def test_jaimini_non_dict_entry(self):
         import pytest
+
         from dashaflow.jaimini import calculate_jaimini_karakas
         with pytest.raises(ValueError):
             calculate_jaimini_karakas({"Sun": "not-a-dict"})
 
     def test_kuja_absent_vs_corrupt(self):
         import pytest
+
         from dashaflow import InvalidInputError
         from dashaflow.matchmaking import calc_kuja_dosha
         assert calc_kuja_dosha({"planets": {}})["total_score"] == 0.0
@@ -463,6 +465,7 @@ class TestFailFastEntries:
 
     def test_sex_energy_corrupt_entry(self):
         import pytest
+
         from dashaflow import InvalidInputError
         from dashaflow.matchmaking import calc_sex_energy
         with pytest.raises(InvalidInputError):
@@ -558,6 +561,7 @@ class TestYoginiDasha:
     def test_balance_worked_example(self):
         # Moon Scorpio 10° (Anuradha): 2-year Bhramari balance per published example.
         import datetime
+
         from dashaflow.yogini import calculate_yogini_dasha
         d = calculate_yogini_dasha(220.0, datetime.datetime(1990, 4, 15),
                                    datetime.datetime(1990, 4, 15))
@@ -567,6 +571,7 @@ class TestYoginiDasha:
 
     def test_cycle_sums_to_36(self):
         import datetime
+
         from dashaflow.yogini import calculate_yogini_dasha
         d = calculate_yogini_dasha(0.0, datetime.datetime(1990, 4, 15),
                                    datetime.datetime(1990, 4, 15))
@@ -579,6 +584,7 @@ class TestYoginiDasha:
 
     def test_active_levels_resolve(self):
         import datetime
+
         from dashaflow.yogini import calculate_yogini_dasha
         d = calculate_yogini_dasha(100.0, datetime.datetime(1990, 4, 15),
                                    datetime.datetime(2000, 6, 1))
@@ -594,6 +600,7 @@ class TestCharaDasha:
     def test_bachchan_published_sequence(self):
         # K.N. Rao's Amitabh Bachchan Chara sequence (Aquarius Lagna).
         import datetime
+
         from dashaflow.chara import calculate_chara_dasha
         d = calculate_chara_dasha("Aquarius", datetime.datetime(1942, 10, 11),
                                   datetime.datetime(1942, 10, 11), self.BACHCHAN_POS)
@@ -602,11 +609,12 @@ class TestCharaDasha:
                     ("Taurus", "1964"), ("Gemini", "1968"), ("Cancer", "1971"),
                     ("Leo", "1980"), ("Virgo", "1991"), ("Libra", "2003"),
                     ("Scorpio", "2014")]
-        for got, (sign, year) in zip(d["timeline"][:10], expected):
+        for got, (sign, year) in zip(d["timeline"][:10], expected, strict=False):
             assert got["sign"] == sign and got["start"][:4] == year
 
     def test_reverse_direction(self):
         import datetime
+
         from dashaflow.chara import calculate_chara_dasha
         pos = {"Sun": 0, "Moon": 0, "Mars": 0, "Mercury": 0, "Jupiter": 0,
                "Venus": 0, "Saturn": 0, "Rahu": 0, "Ketu": 6}
@@ -632,6 +640,7 @@ class TestCharaHorizonGuard:
 
     def test_far_query_resolves(self):
         import datetime
+
         from dashaflow.chara import calculate_chara_dasha
         birth = datetime.datetime(2000, 1, 1)
         d = calculate_chara_dasha("Aries", birth, datetime.datetime(2119, 6, 1),
