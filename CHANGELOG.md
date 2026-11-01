@@ -4,16 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
-
-### Added
-- Access shape for AI consumers: `summarize_chart` (compact <4KB projection with drill-down pointers; `detail="full"` passthrough), `get_dasha_periods`, `get_strength_table`, `get_yoga_list`, and `cast_charts` batch API.
-- `dashaflow.schemas`: published JSON Schemas for all outputs + `validate()` helper (optional `jsonschema` dependency, now in test/dev extras).
-- Vimshopaka Bala (Shad-Varga 20-point strength with bands) wired into every chart.
-- Sodhita Ashtakavarga (Trikona + Ekadhipatya reductions) with Sodhya Pinda per planet.
-- Yogini Dasha (36-year cycle, Maha/Antar/Pratyantar + timeline).
-- Chara Dasha (Jaimini sign-to-lord method, verified against K.N. Rao's published Bachchan sequence).
-## [1.2.0] - 2026-09-10
+## [1.2.0] - 2026-11-01
 
 ### Added
 - Error taxonomy (`dashaflow.errors`: `DashaFlowError`, `InvalidInputError`, `EphemerisError`, `CalculationError`; input errors remain `ValueError`-compatible).
@@ -24,6 +15,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - Strict input validation (impossible calendar dates, non-numeric/NaN lat-lon, query/transit dates, ephe_path) with `tests/test_validation.py`.
 - Edge-case tests (`tests/test_edgecases.py`) for dasha bounds, Kemadruma Bhanga, Kaal Sarpa longitudes, Graha Yuddha latitude winner, Jaimini ties, Ashtakavarga errors.
 - `pyproject.toml` test extra (`.[test]`), pytest/ruff config; pip-cached CI; documented simplifications in README Limitations.
+- Access shape for AI consumers: `summarize_chart` (compact <4KB projection with drill-down pointers; `detail="full"` passthrough), `get_dasha_periods`, `get_strength_table`, `get_yoga_list`, and `cast_charts` batch API.
+- `dashaflow.schemas`: published JSON Schemas for all outputs + `validate()` helper (optional `jsonschema` dependency, now in test/dev extras).
+- Vimshopaka Bala (Shad-Varga 20-point strength with bands) wired into every chart.
+- Sodhita Ashtakavarga (Trikona + Ekadhipatya reductions) with Sodhya Pinda per planet.
+- Yogini Dasha (36-year cycle, Maha/Antar/Pratyantar + timeline).
+- Chara Dasha (Jaimini sign-to-lord method, verified against K.N. Rao's published Bachchan sequence).
 
 ### Changed
 - Vimshottari Dasha uses sidereal year (365.2563d) with full-precision sub-period boundaries (date-only strings preserved).

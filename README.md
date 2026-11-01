@@ -54,7 +54,13 @@ print(career["career_themes"])
 
 | Function | Description |
 |---|---|
-| `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more || `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
+| `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more |
+| `cast_charts(births, query_date=None, ephe_path='', max_workers=4)` | Batch natal charts over the thread-safe engine, in input order |
+| `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
+| `summarize_chart(chart, detail="compact")` | Compact <4KB projection for AI agents; `detail="full"` returns the chart unchanged |
+| `get_dasha_periods(chart)` | Full Vimshottari/Yogini/Chara chains with dates |
+| `get_strength_table(chart)` | Per-planet Shadbala, Vimshopaka, Sodhya Pinda |
+| `get_yoga_list(chart)` | Full yoga entries (name, formed_by, description) |
 | `calculate_compatibility(dob1, time1, lat1, lon1, tz1, dob2, time2, lat2, lon2, tz2)` | 36-point Ashtakoot + extended kutas + Kuja Dosha |
 | `check_muhurtha(activity, date, time, lat, lon, timezone)` | Electional astrology for 6 activity types |
 | `analyze_career(dob, time, lat, lon, timezone)` | D10 Dashamsha career analysis with theme recommendations |
@@ -72,6 +78,7 @@ from dashaflow.vimshopaka import calculate_vimshopaka
 from dashaflow.yogini import calculate_yogini_dasha
 from dashaflow.chara import calculate_chara_dasha
 from dashaflow.errors import DashaFlowError, InvalidInputError, EphemerisError, CalculationError
+from dashaflow import schemas  # published JSON Schemas + validate()
 from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 ```
 
