@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
-## [Unreleased]
+## [1.3.0] - 2026-11-01
 
 ### Added
 - Access-shape additions: `get_time_sensitivity` (robust/borderline/fragile verdict over a ±4 min window), `is_vargottama` / `is_yogakaraka` planet flags (full chart, strength table, compact), optional `time_sensitivity` injection in `summarize_chart`.
