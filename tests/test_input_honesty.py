@@ -35,3 +35,39 @@ class TestSecondsPrecision:
 
         with pytest.raises(InvalidInputError):
             _chart("24:00:00")
+
+
+class TestTimeSensitivity:
+    def test_stable_chart_is_robust(self):
+        s = dashaflow.get_time_sensitivity(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert s["verdict"] == "robust"
+        assert s["lagna_stable"] is True
+        assert s["moon_pada_stable"] is True
+
+    def test_cusp_chart_is_fragile(self):
+        s = dashaflow.get_time_sensitivity(
+            "1990-04-15", "04:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert s["verdict"] == "fragile"
+        assert s["lagna_stable"] is False
+        assert any("Pisces" in n for n in s["notes"])
+
+    def test_near_cusp_chart_is_borderline(self):
+        s = dashaflow.get_time_sensitivity(
+            "1990-04-15", "03:00", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert s["verdict"] == "borderline"
+        assert s["lagna_stable"] is True
+
+    def test_wider_window_escalates_borderline(self):
+        narrow = dashaflow.get_time_sensitivity(
+            "1990-04-15", "03:00", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01", window_minutes=4)
+        wide = dashaflow.get_time_sensitivity(
+            "1990-04-15", "03:00", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01", window_minutes=8)
+        assert narrow["verdict"] == "borderline"
+        assert wide["verdict"] == "fragile"
+        assert wide["lagna_stable"] is False

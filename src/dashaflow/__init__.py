@@ -24,6 +24,7 @@ from .constants import ZODIAC_SIGNS
 from .errors import CalculationError, DashaFlowError, EphemerisError, InvalidInputError
 from .matchmaking import calc_kuja_dosha, calculate_ashtakoot, match_kuja_dosha
 from .muhurtha import ACTIVITY_RULES, evaluate_muhurtha
+from .sensitivity import get_time_sensitivity
 from .vedic_calculator import calculate_transit, calculate_vedic_chart
 
 __all__ = [
@@ -42,6 +43,7 @@ __all__ = [
     "get_dasha_periods",
     "get_strength_table",
     "get_yoga_list",
+    "get_time_sensitivity",
     "schemas",
 ]
 
