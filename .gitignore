@@ -9,6 +9,10 @@ build/
 *.so
 *.whl
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
 .tox/
 .venv/
 venv/
@@ -19,3 +23,9 @@ env/
 *.swp
 *.swo
 *~
+
+# hyperresearch vault (local research setup, not part of the package)
+.claude/
+.hyperresearch/
+CLAUDE.md
+research/

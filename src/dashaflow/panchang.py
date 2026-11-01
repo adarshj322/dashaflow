@@ -1,9 +1,13 @@
+import logging
 import math
-from .constants import TITHI_NAMES, VARA_NAMES, VARA_LORDS, PANCHANG_YOGA_NAMES, KARANA_NAMES
+
+from .constants import KARANA_NAMES, PANCHANG_YOGA_NAMES, TITHI_NAMES, VARA_LORDS, VARA_NAMES
 from .nakshatra import get_nakshatra
 
+logger = logging.getLogger(__name__)
 
-def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
+
+def calculate_panchang(jd: float, sun_lon: float, moon_lon: float, lat=None, lon=None) -> dict:
     """
     Calculate the five Panchang elements for a given moment.
 
@@ -21,17 +25,20 @@ def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
     dict with tithi, vara, nakshatra, yoga, karana
     """
     # --- Tithi ---
+    # Epsilon guards float boundary flicker (e.g. 11.9999999 vs 12.0).
+    _EPS = 1e-9
     diff = (moon_lon - sun_lon) % 360.0
-    tithi_num = int(diff / 12.0)  # 0-29
+    tithi_num = int((diff + _EPS) / 12.0)  # 0-29
+    if tithi_num > 29:
+        tithi_num = 29
     paksha = "Shukla" if tithi_num < 15 else "Krishna"
     tithi_name = TITHI_NAMES[tithi_num]
 
     # --- Vara (weekday) ---
-    # Julian Day 0 = Monday in many conventions; swe.julday for J2000 epoch
-    # JD 2451545.0 (2000-01-01 12:00 UT) was a Saturday
-    # weekday = (JD + 1.5) % 7 => 0=Mon, 1=Tue, ... 6=Sun (Julian convention)
+    # Verified: JD 2451545.0 (2000-01-01 12:00 UT, a Saturday) gives
+    # floor(2451545.0 + 0.5) % 7 = 5 → VARA_NAMES[5] = "Saturday". So 0=Mon..6=Sun.
     day_idx = int(math.floor(jd + 0.5)) % 7
-    
+
     # Correct for local sunrise if lat/lon provided
     if lat is not None and lon is not None:
         try:
@@ -44,8 +51,10 @@ def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
             # If born before today's sunrise, the Vedic day is yesterday
             if jd < sunrise_jd:
                 day_idx = (day_idx - 1) % 7
-        except Exception:
-            pass
+        except Exception as exc:
+            # Sunrise correction is best-effort (ephemeris gaps, polar edge
+            # cases); fall back to civil-day vara rather than failing the chart.
+            logger.debug("sunrise vara correction skipped: %s", exc)
 
     # JD 0 = Monday (Julian proleptic). Map: 0=Mon,1=Tue,...6=Sun
     vara = VARA_NAMES[day_idx]
@@ -56,14 +65,16 @@ def calculate_panchang(jd, sun_lon, moon_lon, lat=None, lon=None):
 
     # --- Yoga (Panchang Yoga) ---
     yoga_val = (sun_lon + moon_lon) % 360.0
-    yoga_idx = int(yoga_val / (360.0 / 27.0))
+    yoga_idx = int((yoga_val + _EPS) / (360.0 / 27.0))
     if yoga_idx >= 27:
         yoga_idx = 26
     yoga_name = PANCHANG_YOGA_NAMES[yoga_idx]
 
     # --- Karana ---
     # Each tithi has 2 karanas (half-tithi = 6 degrees of Sun-Moon distance)
-    karana_num = int(diff / 6.0)  # 0-59
+    karana_num = int((diff + _EPS) / 6.0)  # 0-59
+    if karana_num > 59:
+        karana_num = 59
     if karana_num == 0:
         karana_name = KARANA_NAMES[10]  # Kimstughna (first half of Shukla Pratipada)
     elif karana_num >= 57:

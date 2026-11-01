@@ -2,22 +2,32 @@
 Shadbala — Six-fold Planetary Strength System (BPHS)
 Calculates a numerical strength score for each planet based on:
 1. Sthana Bala (Positional Strength) — Uchcha, Saptavargaja, Ojayugmarasyamsha, Kendra, Drekkana
-2. Dig Bala (Directional Strength) — Based on house position
-3. Kala Bala (Temporal Strength) — Day/night birth, hora lord, etc. (simplified)
-4. Chesta Bala (Motional Strength) — Based on speed/retrograde
+2. Dig Bala (Directional Strength) — Based on house position (linear house-distance model)
+3. Kala Bala (Temporal Strength) — Natonnata + Paksha + Ayana only (Hora, Masa, Varsha,
+   Yuddha, etc. omitted — simplified)
+4. Chesta Bala (Motional Strength) — Based on speed/retrograde (Sun/Moon fixed 30, nodes 0)
 5. Naisargika Bala (Natural Strength) — Fixed hierarchy Sun > Moon > Venus > Jupiter > Mercury > Mars > Saturn
-6. Drik Bala (Aspectual Strength) — Based on aspects received (simplified)
+6. Drik Bala (Aspectual Strength) — BPHS weighted partial aspects, normalized with
+   midpoint 30 into [0, 60] (simplified model)
 
-All values are in Shashtiamshas (60ths of a Rupa). 1 Rupa = 60 Shashtiamshas.
+Simplifications vs classical BPHS are intentional for a lightweight engine and are
+documented per-function. All values are in Shashtiamshas (60ths of a Rupa).
+1 Rupa = 60 Shashtiamshas.
 """
 
-from .constants import (
-    ZODIAC_SIGNS, EXALTATION, DEBILITATION, OWN_SIGNS,
-    MOOLTRIKONA, NATURAL_FRIENDS, NATURAL_ENEMIES, NATURAL_NEUTRALS,
-    DIGBALA_HOUSES, SIGN_LORDS
-)
 import math
 
+from .constants import (
+    DEBILITATION,
+    DIGBALA_HOUSES,
+    EXALTATION,
+    MOOLTRIKONA,
+    NATURAL_ENEMIES,
+    NATURAL_FRIENDS,
+    OWN_SIGNS,
+    SIGN_LORDS,
+    ZODIAC_SIGNS,
+)
 
 # ============================================================
 # 1. STHANA BALA (Positional Strength)
@@ -80,14 +90,19 @@ def _saptavargaja_bala(planet_name, dignity, planet_data=None):
     D1 (Rasi), D2 (Hora), D3 (Drekkana), D7 (Saptamsha),
     D9 (Navamsha), D12 (Dwadashamsha), D30 (Trimshamsha).
     Each varga contributes up to 30 points; total is averaged.
+    Missing varga signs fall back to neutral 10.0 (documented simplification).
     """
     dignity_scores = {
         "exalted": 30.0,
         "mooltrikona": 22.5,
         "own_sign": 20.0,
+        # Panchadha-Maitri grades produced by get_dignity() map onto the
+        # classical friend/enemy bands (great_friend counts as friend, etc.).
+        "great_friend": 15.0,
         "friend": 15.0,
         "neutral": 10.0,
         "enemy": 5.0,
+        "great_enemy": 5.0,
         "debilitated": 2.0,
     }
     d1_score = dignity_scores.get(dignity, 10.0)
@@ -285,7 +300,7 @@ def _chesta_bala(planet_name, speed, is_retrograde):
         return 45.0  # near-stationary
     # Scale linearly: 0 speed → 45, avg speed → 30, 2x avg → 15
     ratio = min(abs_speed / avg, 2.0)
-    return round(60.0 - ratio * 15.0, 2)
+    return round(45.0 - ratio * 15.0, 2)
 
 
 # ============================================================
@@ -373,13 +388,13 @@ REQUIRED_SHADBALA = {
 def calculate_shadbala(planets_data: dict, raw_planets: dict, is_day_birth: bool = True):
     """
     Calculates the six-fold strength for all 7 planets.
-    
+
     Parameters
     ----------
     planets_data : dict — The enriched 'planets' output from calculate_vedic_chart
     raw_planets : dict — The raw planet data with 'lon', 'sign_idx', 'speed'
     is_day_birth : bool — Whether birth occurred during daytime
-    
+
     Returns
     -------
     dict: Shadbala breakdown for each planet with total in Shashtiamshas and Rupas.

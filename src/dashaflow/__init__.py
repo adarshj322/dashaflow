@@ -15,21 +15,34 @@ Quick start::
     print(chart["yogas"])               # detected yogas
 """
 
+from . import schemas as schemas
+from ._validation import validate_birth_input, validate_ephe_path, validate_query_date
 from ._version import __version__
-from ._validation import validate_birth_input
-from .vedic_calculator import calculate_vedic_chart, calculate_transit
-from .matchmaking import calculate_ashtakoot, calc_kuja_dosha, match_kuja_dosha
-from .muhurtha import evaluate_muhurtha, ACTIVITY_RULES
-from .career import analyze_career as _analyze_career_internal
+from .access import get_dasha_periods, get_strength_table, get_yoga_list, summarize_chart
+from .career import analyze_career as _career_analyze_internal
 from .constants import ZODIAC_SIGNS
+from .errors import CalculationError, DashaFlowError, EphemerisError, InvalidInputError
+from .matchmaking import calc_kuja_dosha, calculate_ashtakoot, match_kuja_dosha
+from .muhurtha import ACTIVITY_RULES, evaluate_muhurtha
+from .vedic_calculator import calculate_transit, calculate_vedic_chart
 
 __all__ = [
     "__version__",
+    "DashaFlowError",
+    "InvalidInputError",
+    "EphemerisError",
+    "CalculationError",
     "cast_chart",
+    "cast_charts",
     "cast_transit",
     "calculate_compatibility",
     "check_muhurtha",
     "analyze_career",
+    "summarize_chart",
+    "get_dasha_periods",
+    "get_strength_table",
+    "get_yoga_list",
+    "schemas",
 ]
 
 
@@ -46,8 +59,10 @@ def cast_chart(
     Cast a complete Vedic natal chart (Sidereal Lahiri ayanamsha).
 
     Returns a dict with: metadata, panchang, lagna, planets (with dignity,
-    combustion, aspects, 14 varga signs), dashas (5 levels), yogas (24 types),
-    ashtakavarga, jaimini_karakas, shadbala, bhava_chalit, avasthas,
+    combustion, aspects, 14 varga signs), dashas (Vimshottari, 5 levels),
+    yogini_dasha (36-year cycle), chara_dasha (Jaimini signs), yogas
+    (24 detections), ashtakavarga, sodhita_ashtakavarga (reduced + Pinda),
+    jaimini_karakas, shadbala, vimshopaka, bhava_chalit, avasthas,
     kaal_sarpa, graha_yuddha, gandanta, arudha_padas, upapada, karakamsha.
 
     Parameters
@@ -78,6 +93,8 @@ def cast_chart(
         If any input parameter is invalid.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
+    validate_query_date(query_date, "query_date")
+    validate_ephe_path(ephe_path)
     return calculate_vedic_chart(
         dob_str=dob,
         time_str=time,
@@ -87,6 +104,55 @@ def cast_chart(
         query_date_str=query_date,
         ephe_path=ephe_path,
     )
+
+
+def cast_charts(
+    births: list,
+    query_date: str = None,
+    ephe_path: str = '',
+    max_workers: int = 4,
+) -> list:
+    """
+    Cast multiple natal charts (batch API for agents).
+
+    Parameters
+    ----------
+    births : list
+        Each entry is a (dob, time, lat, lon, timezone) tuple.
+    query_date : str, optional
+        Shared Dasha lookup date as "YYYY-MM-DD". Defaults to today.
+    ephe_path : str, optional
+        Path to Swiss Ephemeris data files. Defaults to '' (bundled).
+    max_workers : int, optional
+        Thread pool size. Defaults to 4.
+
+    Returns
+    -------
+    list
+        One chart dict per input, in input order. Equivalent to calling
+        cast_chart once per birth (the engine is thread-safe).
+    """
+    import concurrent.futures
+
+    validate_query_date(query_date, "query_date")
+    validate_ephe_path(ephe_path)
+    for entry in births:
+        if len(entry) != 5:
+            raise InvalidInputError(
+                f"Invalid birth entry {entry!r}. Expected "
+                "(dob, time, lat, lon, timezone).")
+        validate_birth_input(*entry)
+
+    def _one(entry):
+        dob, time, lat, lon, timezone = entry
+        return calculate_vedic_chart(
+            dob_str=dob, time_str=time, lat=lat, lon=lon,
+            timezone_str=timezone, query_date_str=query_date,
+            ephe_path=ephe_path,
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        return list(pool.map(_one, births))
 
 
 def cast_transit(
@@ -121,6 +187,7 @@ def cast_transit(
         Transit planets with house positions, SAV points, Sade Sati, Rahu-Ketu axis.
     """
     validate_birth_input(dob_str, time_str, lat, lon, timezone)
+    validate_query_date(transit_date, "transit_date")
     natal_chart = calculate_vedic_chart(
         dob_str=dob_str,
         time_str=time_str,
@@ -213,8 +280,8 @@ def check_muhurtha(
         Verdict (auspicious/mixed/inauspicious), score, factors, panchang_suddhi.
     """
     validate_birth_input(date, time, lat, lon, timezone)
-    if activity not in ACTIVITY_RULES:
-        raise ValueError(f"Unknown activity '{activity}'. Supported: {list(ACTIVITY_RULES.keys())}")
+    if not isinstance(activity, str) or activity not in ACTIVITY_RULES:
+        raise InvalidInputError(f"Unknown activity '{activity}'. Supported: {list(ACTIVITY_RULES.keys())}")
 
     chart = calculate_vedic_chart(date, time, lat, lon, timezone)
     panchang = chart.get("panchang", {})
@@ -255,4 +322,4 @@ def analyze_career(
     chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
     planets = chart.get("planets", {})
     lagna_sign = chart.get("lagna", {}).get("sign")
-    return _analyze_career_internal(planets, lagna_sign)
+    return _career_analyze_internal(planets, lagna_sign)
