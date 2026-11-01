@@ -423,9 +423,13 @@ def _to_jd(dob_str: str, time_str: str, timezone_str: str) -> tuple:
     except Exception:
         raise InvalidInputError(f"Unknown timezone '{timezone_str}'. Use IANA format.") from None
     try:
-        naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M")
+        naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        raise InvalidInputError(f"Invalid date/time '{dob_str} {time_str}'. Expected YYYY-MM-DD HH:MM.") from None
+        try:
+            naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise InvalidInputError(
+                f"Invalid date/time '{dob_str} {time_str}'. Expected YYYY-MM-DD HH:MM[:SS].") from None
     try:
         # is_dst=None forces pytz to raise (rather than silently resolve)
         # ambiguous fall-back hours and spring-forward gaps — a birth time
