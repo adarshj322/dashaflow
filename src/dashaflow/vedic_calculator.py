@@ -624,7 +624,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     Parameters
     ----------
     dob_str : str  "YYYY-MM-DD"
-    time_str : str "HH:MM" (24-hour format)
+    time_str : str "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float    Latitude (e.g., 28.6139 for Delhi)
     lon : float    Longitude (e.g., 77.2090 for Delhi)
     timezone_str : str  (e.g., "Asia/Kolkata")

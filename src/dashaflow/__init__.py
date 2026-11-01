@@ -72,7 +72,7 @@ def cast_chart(
     dob : str
         Date of birth as "YYYY-MM-DD"
     time : str
-        Time of birth as "HH:MM" (24-hour)
+        Time of birth as "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float
         Birth latitude (-90 to 90)
     lon : float
@@ -175,7 +175,7 @@ def cast_transit(
     dob_str : str
         Date of birth as "YYYY-MM-DD"
     time_str : str
-        Time of birth as "HH:MM" (24-hour)
+        Time of birth as "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float
         Birth latitude (-90 to 90)
     lon : float
@@ -268,7 +268,7 @@ def check_muhurtha(
     date : str
         Date as "YYYY-MM-DD"
     time : str
-        Time as "HH:MM" (24-hour)
+        Time as "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float
         Location latitude
     lon : float
@@ -307,7 +307,7 @@ def analyze_career(
     dob : str
         Date of birth as "YYYY-MM-DD"
     time : str
-        Time of birth as "HH:MM" (24-hour)
+        Time of birth as "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float
         Birth latitude
     lon : float
