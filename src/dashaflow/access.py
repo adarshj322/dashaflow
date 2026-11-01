@@ -7,19 +7,24 @@ what's needed without recomputation. All functions are pure over a
 chart dict as returned by cast_chart / calculate_vedic_chart.
 """
 
-COMPACT_PLANET_FIELDS = ("sign", "house", "nakshatra", "dignity")
+COMPACT_PLANET_FIELDS = ("sign", "house", "nakshatra", "dignity",
+                         "is_vargottama", "is_yogakaraka")
 
 
-def summarize_chart(chart: dict, detail: str = "compact") -> dict:
+def summarize_chart(chart: dict, detail: str = "compact",
+                    time_sensitivity: dict | None = None) -> dict:
     """
     Project a chart to a compact (~<4KB) summary for AI consumers.
 
     detail="compact" (default): five sections — lagna, condensed planets
-    (sign/house/nakshatra/dignity only), active dasha lords for all three
-    systems (no timelines), yoga names, strength totals+bands, SAV only,
+    (sign/house/nakshatra/dignity + vargottama/yogakaraka flags), active
+    dasha lords for all three systems (no timelines), yoga names, strength totals+bands, SAV only,
     dosha flags. Each truncated section names the getter that returns
     the full data.
     detail="full": returns the chart unchanged.
+    time_sensitivity: optional get_time_sensitivity() result, included
+    verbatim as the 'time_sensitivity' section (callers with birth
+    details inject it; the engine stays pure and never re-casts).
     """
     if detail == "full":
         return chart
@@ -62,11 +67,12 @@ def summarize_chart(chart: dict, detail: str = "compact") -> dict:
         "gandanta": [g.get("planet") for g in (chart.get("gandanta") or [])],
     }
 
-    return {
+    result = {
         "lagna": {
             "sign": chart.get("lagna", {}).get("sign"),
             "degree": chart.get("lagna", {}).get("degree"),
             "nakshatra": chart.get("lagna", {}).get("nakshatra"),
+            "is_vargottama": chart.get("lagna", {}).get("is_vargottama"),
         },
         "planets": planets,
         "dashas": {
@@ -82,6 +88,9 @@ def summarize_chart(chart: dict, detail: str = "compact") -> dict:
         "doshas": doshas,
         "query_date": chart.get("metadata", {}).get("query_date"),
     }
+    if time_sensitivity is not None:
+        result["time_sensitivity"] = time_sensitivity
+    return result
 
 
 def get_dasha_periods(chart: dict) -> dict:
@@ -107,6 +116,8 @@ def get_strength_table(chart: dict) -> dict:
             "vimshopaka": (vimshopaka.get(name) or {}).get("total_20"),
             "vimshopaka_band": (vimshopaka.get(name) or {}).get("band"),
             "sodhya_pinda": pinda.get(name),
+            "is_vargottama": (chart.get("planets", {}).get(name) or {}).get("is_vargottama"),
+            "is_yogakaraka": (chart.get("planets", {}).get(name) or {}).get("is_yogakaraka"),
         }
     return table
 

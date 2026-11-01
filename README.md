@@ -57,9 +57,10 @@ print(career["career_themes"])
 | `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more |
 | `cast_charts(births, query_date=None, ephe_path='', max_workers=4)` | Batch natal charts over the thread-safe engine, in input order |
 | `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
-| `summarize_chart(chart, detail="compact")` | Compact <4KB projection for AI agents; `detail="full"` returns the chart unchanged |
+| `summarize_chart(chart, detail="compact", time_sensitivity=None)` | Compact <4KB projection for AI agents; `detail="full"` returns the chart unchanged; optional sensitivity dict injected verbatim |
+| `get_time_sensitivity(dob, time, lat, lon, timezone, window_minutes=4, query_date=None, ephe_path='')` | Birth-time sensitivity: Lagna/Moon/house/balance stability over ±window with robust/borderline/fragile verdict |
 | `get_dasha_periods(chart)` | Full Vimshottari/Yogini/Chara chains with dates |
-| `get_strength_table(chart)` | Per-planet Shadbala, Vimshopaka, Sodhya Pinda |
+| `get_strength_table(chart)` | Per-planet Shadbala, Vimshopaka, Sodhya Pinda + vargottama/yogakaraka flags |
 | `get_yoga_list(chart)` | Full yoga entries (name, formed_by, description) |
 | `calculate_compatibility(dob1, time1, lat1, lon1, tz1, dob2, time2, lat2, lon2, tz2)` | 36-point Ashtakoot + extended kutas + Kuja Dosha |
 | `check_muhurtha(activity, date, time, lat, lon, timezone)` | Electional astrology for 6 activity types |
@@ -88,8 +89,8 @@ from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 |---|---|
 | `metadata` | DOB, time, coordinates, ayanamsha (Lahiri), query date |
 | `panchang` | Tithi, Vara, Nakshatra, Yoga, Karana |
-| `lagna` | Ascendant sign, degree, nakshatra, pada, D2–D60 signs |
-| `planets` | Per planet: sign, degree, degree_precise, house, nakshatra, pada, dignity, combustion, retrograde, digbala, aspects, 14 varga signs |
+| `lagna` | Ascendant sign, degree, nakshatra, pada, D2–D60 signs, vargottama flag |
+| `planets` | Per planet: sign, degree, degree_precise, house, nakshatra, pada, dignity, combustion, retrograde, digbala, vargottama + yogakaraka flags, aspects, 14 varga signs |
 | `dashas` | Vimshottari 5 levels: Maha, Antar, Pratyantar, Sukshma, Prana + 120-year timeline |
 | `yogini_dasha` | Yogini 36-year cycle (Maha, Antar, Pratyantar + timeline) |
 | `chara_dasha` | Jaimini Chara sign periods (Maha, Antar + timeline) |

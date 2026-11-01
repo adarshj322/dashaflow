@@ -653,3 +653,52 @@ class TestCharaHorizonGuard:
         # Mars and Ketu both neutral here → primary (Mars) wins ties.
         lord, pos = _resolve_lord(7, {"Mars": 1, "Ketu": 2})
         assert (lord, pos) == ("Mars", 1)
+
+
+class TestStrengthFlags:
+    def test_vargottama_flagged(self):
+        chart = dashaflow.cast_chart(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert chart["planets"]["Sun"]["is_vargottama"] is True
+        assert chart["planets"]["Sun"]["d9_sign"] == "Aries"
+
+    def test_non_vargottama_unflagged(self):
+        chart = dashaflow.cast_chart(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert chart["planets"]["Moon"]["is_vargottama"] is False
+
+    def test_yogakaraka_by_lagna(self):
+        from dashaflow.dignity import get_yogakaraka
+        assert get_yogakaraka("Taurus") == "Saturn"
+        assert get_yogakaraka("Libra") == "Saturn"
+        assert get_yogakaraka("Cancer") == "Mars"
+        assert get_yogakaraka("Leo") == "Mars"
+        assert get_yogakaraka("Capricorn") == "Venus"
+        assert get_yogakaraka("Aquarius") == "Venus"
+        assert get_yogakaraka("Aries") is None
+        assert get_yogakaraka("Virgo") is None
+
+    def test_yogakaraka_flagged_in_chart(self):
+        chart = dashaflow.cast_chart(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert chart["lagna"]["sign"] == "Leo"
+        assert chart["planets"]["Mars"]["is_yogakaraka"] is True
+        assert chart["planets"]["Saturn"]["is_yogakaraka"] is False
+
+
+class TestLagnaVargottama:
+    def test_vargottama_lagna_flagged(self):
+        chart = dashaflow.cast_chart(
+            "1962-07-03", "03:20", 43.0481, -76.1474, "America/New_York",
+            query_date="2026-01-01")
+        assert chart["lagna"]["sign"] == "Taurus"
+        assert chart["lagna"]["is_vargottama"] is True
+
+    def test_non_vargottama_lagna_unflagged(self):
+        chart = dashaflow.cast_chart(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert chart["lagna"]["is_vargottama"] is False

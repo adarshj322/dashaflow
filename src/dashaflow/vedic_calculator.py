@@ -12,7 +12,7 @@ from .ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
 from .chara import calculate_chara_dasha
 from .constants import PLANETS, ZODIAC_SIGNS
 from .dasha import calculate_dashas
-from .dignity import check_combustion, get_digbala, get_dignity
+from .dignity import check_combustion, get_digbala, get_dignity, get_yogakaraka
 from .errors import CalculationError, EphemerisError, InvalidInputError
 from .jaimini import (
     calculate_arudha_padas,
@@ -381,6 +381,9 @@ def _enrich_planets(raw_planets: dict, asc_sign_idx: int, sun_lon: float) -> tup
             "aspects": get_vedic_aspects(name, rp["sign_idx"]),
         }
         planet_entry.update(calculate_all_vargas(rp["lon"]))
+        lagna_sign = ZODIAC_SIGNS[asc_sign_idx]
+        planet_entry["is_vargottama"] = planet_entry["sign"] == planet_entry["d9_sign"]
+        planet_entry["is_yogakaraka"] = name == get_yogakaraka(lagna_sign)
         planets_output[name] = planet_entry
         planets_for_yoga[name] = {
             "sign": rp["sign"],
@@ -423,9 +426,13 @@ def _to_jd(dob_str: str, time_str: str, timezone_str: str) -> tuple:
     except Exception:
         raise InvalidInputError(f"Unknown timezone '{timezone_str}'. Use IANA format.") from None
     try:
-        naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M")
+        naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M:%S")
     except ValueError:
-        raise InvalidInputError(f"Invalid date/time '{dob_str} {time_str}'. Expected YYYY-MM-DD HH:MM.") from None
+        try:
+            naive_dt = datetime.datetime.strptime(f"{dob_str} {time_str}", "%Y-%m-%d %H:%M")
+        except ValueError:
+            raise InvalidInputError(
+                f"Invalid date/time '{dob_str} {time_str}'. Expected YYYY-MM-DD HH:MM[:SS].") from None
     try:
         # is_dst=None forces pytz to raise (rather than silently resolve)
         # ambiguous fall-back hours and spring-forward gaps — a birth time
@@ -617,7 +624,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     Parameters
     ----------
     dob_str : str  "YYYY-MM-DD"
-    time_str : str "HH:MM" (24-hour format)
+    time_str : str "HH:MM[:SS]" (24-hour; seconds optional)
     lat : float    Latitude (e.g., 28.6139 for Delhi)
     lon : float    Longitude (e.g., 77.2090 for Delhi)
     timezone_str : str  (e.g., "Asia/Kolkata")
@@ -740,6 +747,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "degree": asc_deg,
             "nakshatra": asc_nak["name"],
             "pada": asc_nak["pada"],
+            "is_vargottama": asc_sign == calculate_navamsha(asc_lon),
             **calculate_all_vargas(asc_lon),
         },
         "planets": planets_output,

@@ -155,3 +155,20 @@ def get_digbala(planet_name: str, house: int) -> bool:
     if ideal_house is None:
         return False
     return house == ideal_house
+
+
+# Lord of both a kendra (1/4/7/10) and a trikona (1/5/9) from Lagna.
+# Only six lagnas have one (BPHS classical set).
+YOGAKARAKA_BY_LAGNA = {
+    "Taurus": "Saturn",
+    "Libra": "Saturn",
+    "Cancer": "Mars",
+    "Leo": "Mars",
+    "Capricorn": "Venus",
+    "Aquarius": "Venus",
+}
+
+
+def get_yogakaraka(lagna_sign: str) -> str | None:
+    """Yogakaraka planet for a Lagna sign, or None if it has none."""
+    return YOGAKARAKA_BY_LAGNA.get(lagna_sign)

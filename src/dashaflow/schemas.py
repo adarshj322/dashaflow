@@ -17,6 +17,7 @@ COMPACT_CHART_SCHEMA = {
         "strengths": {"type": "object"},
         "sav": {"type": "object"},
         "doshas": {"type": "object"},
+        "time_sensitivity": {"type": ["object", "null"]},
         "query_date": {"type": ["string", "null"]},
     },
 }
