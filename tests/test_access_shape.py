@@ -27,7 +27,8 @@ class TestSummarizeChartCompact:
     def test_compact_planets_condensed(self):
         compact = summarize_chart(_chart())
         moon = compact["planets"]["Moon"]
-        assert set(moon) <= {"sign", "house", "nakshatra", "dignity"}
+        assert set(moon) <= {"sign", "house", "nakshatra", "dignity",
+                             "is_vargottama", "is_yogakaraka"}
         assert moon["sign"] == "Scorpio"
 
     def test_compact_dashas_active_lords_only(self):
@@ -96,3 +97,31 @@ class TestCastChartsBatch:
 
     def test_batch_empty(self):
         assert dashaflow.cast_charts([]) == []
+
+
+class TestStrengthFlagsInAccessShape:
+    def test_compact_planets_carry_flags(self):
+        compact = dashaflow.summarize_chart(_chart())
+        assert compact["planets"]["Sun"]["is_vargottama"] is True
+        assert compact["planets"]["Moon"]["is_vargottama"] is False
+        assert compact["planets"]["Mars"]["is_yogakaraka"] is True
+
+    def test_strength_table_carries_flags(self):
+        table = dashaflow.get_strength_table(_chart())
+        assert table["Sun"]["is_vargottama"] is True
+        assert table["Mars"]["is_yogakaraka"] is True
+        assert table["Saturn"]["is_yogakaraka"] is False
+
+
+class TestSummarizeSensitivityInjection:
+    def test_injected_sensitivity_appears_verbatim(self):
+        chart = _chart()
+        sens = dashaflow.get_time_sensitivity(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        compact = dashaflow.summarize_chart(chart, time_sensitivity=sens)
+        assert compact["time_sensitivity"] == sens
+        assert compact["time_sensitivity"]["verdict"] == "robust"
+
+    def test_absent_sensitivity_omits_section(self):
+        assert "time_sensitivity" not in dashaflow.summarize_chart(_chart())

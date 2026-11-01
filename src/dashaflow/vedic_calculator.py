@@ -12,7 +12,7 @@ from .ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
 from .chara import calculate_chara_dasha
 from .constants import PLANETS, ZODIAC_SIGNS
 from .dasha import calculate_dashas
-from .dignity import check_combustion, get_digbala, get_dignity
+from .dignity import check_combustion, get_digbala, get_dignity, get_yogakaraka
 from .errors import CalculationError, EphemerisError, InvalidInputError
 from .jaimini import (
     calculate_arudha_padas,
@@ -381,6 +381,9 @@ def _enrich_planets(raw_planets: dict, asc_sign_idx: int, sun_lon: float) -> tup
             "aspects": get_vedic_aspects(name, rp["sign_idx"]),
         }
         planet_entry.update(calculate_all_vargas(rp["lon"]))
+        lagna_sign = ZODIAC_SIGNS[asc_sign_idx]
+        planet_entry["is_vargottama"] = planet_entry["sign"] == planet_entry["d9_sign"]
+        planet_entry["is_yogakaraka"] = name == get_yogakaraka(lagna_sign)
         planets_output[name] = planet_entry
         planets_for_yoga[name] = {
             "sign": rp["sign"],
