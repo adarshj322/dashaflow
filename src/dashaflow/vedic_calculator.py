@@ -747,6 +747,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "degree": asc_deg,
             "nakshatra": asc_nak["name"],
             "pada": asc_nak["pada"],
+            "is_vargottama": asc_sign == calculate_navamsha(asc_lon),
             **calculate_all_vargas(asc_lon),
         },
         "planets": planets_output,

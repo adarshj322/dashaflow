@@ -687,3 +687,18 @@ class TestStrengthFlags:
         assert chart["lagna"]["sign"] == "Leo"
         assert chart["planets"]["Mars"]["is_yogakaraka"] is True
         assert chart["planets"]["Saturn"]["is_yogakaraka"] is False
+
+
+class TestLagnaVargottama:
+    def test_vargottama_lagna_flagged(self):
+        chart = dashaflow.cast_chart(
+            "1962-07-03", "03:20", 43.0481, -76.1474, "America/New_York",
+            query_date="2026-01-01")
+        assert chart["lagna"]["sign"] == "Taurus"
+        assert chart["lagna"]["is_vargottama"] is True
+
+    def test_non_vargottama_lagna_unflagged(self):
+        chart = dashaflow.cast_chart(
+            "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert chart["lagna"]["is_vargottama"] is False

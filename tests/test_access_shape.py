@@ -125,3 +125,6 @@ class TestSummarizeSensitivityInjection:
 
     def test_absent_sensitivity_omits_section(self):
         assert "time_sensitivity" not in dashaflow.summarize_chart(_chart())
+
+    def test_compact_lagna_carries_vargottama(self):
+        assert dashaflow.summarize_chart(_chart())["lagna"]["is_vargottama"] is False

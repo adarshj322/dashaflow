@@ -72,6 +72,7 @@ def summarize_chart(chart: dict, detail: str = "compact",
             "sign": chart.get("lagna", {}).get("sign"),
             "degree": chart.get("lagna", {}).get("degree"),
             "nakshatra": chart.get("lagna", {}).get("nakshatra"),
+            "is_vargottama": chart.get("lagna", {}).get("is_vargottama"),
         },
         "planets": planets,
         "dashas": {
