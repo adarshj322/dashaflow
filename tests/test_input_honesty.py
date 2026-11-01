@@ -71,3 +71,24 @@ class TestTimeSensitivity:
         assert narrow["verdict"] == "borderline"
         assert wide["verdict"] == "fragile"
         assert wide["lagna_stable"] is False
+
+
+class TestSensitivityEdges:
+    def test_invalid_window_rejected(self):
+        import pytest
+
+        with pytest.raises(InvalidInputError):
+            dashaflow.get_time_sensitivity(
+                "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+                window_minutes=0)
+        with pytest.raises(InvalidInputError):
+            dashaflow.get_time_sensitivity(
+                "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+                window_minutes=-5)
+
+    def test_midnight_rollover(self):
+        s = dashaflow.get_time_sensitivity(
+            "1990-04-16", "00:02", 28.6139, 77.2090, "Asia/Kolkata",
+            query_date="2026-01-01")
+        assert s["verdict"] in ("robust", "borderline", "fragile")
+        assert s["window_minutes"] == 4
