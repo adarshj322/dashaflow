@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Added
+- Transit workbench: `get_transit_ingresses` (exact sign-change instants over a range, retrograde re-entries included), `get_sade_sati_timeline` (disjoint rising/peak/setting spans with off-gap merge, clipped-range flags, and raw Saturn crossings), and `get_gochara` (transit quality from the natal Moon, BPHS favourable-house table weighted by natal SAV; Rahu/Ketu use Raman's 3, 6, 11 convention, labelled in `notes`).
+- Published JSON Schemas `transit_ingresses`, `sade_sati_timeline`, and `gochara`.
+
 ## [1.3.0] - 2026-11-01
 
 ### Added

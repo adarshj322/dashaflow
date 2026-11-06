@@ -144,3 +144,16 @@ def test_gochara_node_notes_label_raman():
     out = dashaflow.get_gochara(**DEMO, transit_date="2026-06-02")
     assert any("Raman convention (nodes)" in n for n in out["planets"]["Rahu"]["notes"])
     assert all("Raman convention" not in n for n in out["planets"]["Sun"]["notes"])
+
+
+def test_workbench_schemas_accept_outputs():
+    pytest.importorskip("jsonschema")
+    from dashaflow.schemas import validate
+    ing = dashaflow.get_transit_ingresses(
+        **DEMO, start_date="2023-01-01", end_date="2023-02-01")
+    ss = dashaflow.get_sade_sati_timeline(
+        **DEMO, start_date="2010-01-01", end_date="2022-01-01")
+    go = dashaflow.get_gochara(**DEMO, transit_date="2026-06-02")
+    validate("transit_ingresses", ing)
+    validate("sade_sati_timeline", ss)
+    validate("gochara", go)
