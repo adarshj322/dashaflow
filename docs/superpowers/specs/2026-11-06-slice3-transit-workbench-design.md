@@ -80,9 +80,10 @@ A is chosen; if you prefer B or C, say so before approving.
 ### 7.1 Module layout
 
 New `src/dashaflow/transit.py`, importing shared internals from
-`vedic_calculator` (`_SWE_LOCK`, `_configure_swiss_ephemeris`, `PLANETS`,
-`get_sign_and_degree`) and constants from `_core_constants`. No circular
-import: `vedic_calculator` never imports `transit`.
+`vedic_calculator` (`_SWE_LOCK`, `_configure_swiss_ephemeris`,
+`get_sign_and_degree`) and constants from `constants.py` (`PLANETS`,
+`ZODIAC_SIGNS`). No circular import: `vedic_calculator` never imports
+`transit`.
 
 Public exports added to `__init__.py` and `__all__`:
 
@@ -115,12 +116,12 @@ Output:
     {
       "planet": "Saturn",
       "date": "2023-01-17",              # local calendar date
-      "instant_utc": "2023-01-17T19:42:00Z",  # minute precision
-      "from_sign": "Aquarius",
-      "to_sign": "Pisces",
+      "instant_utc": "2023-01-17T12:34:00Z",  # minute precision
+      "from_sign": "Capricorn",
+      "to_sign": "Aquarius",
       "direction": "direct",             # direct | retrograde
-      "house_from_lagna": 11,
-      "house_from_moon": 5
+      "house_from_lagna": 7,
+      "house_from_moon": 4
     }
   ]
 }
@@ -148,29 +149,59 @@ Sade Sati is Saturn transiting the 12th, 1st, or 2nd sign from the natal Moon:
   "natal_moon_sign": "Scorpio",
   "range": {"start": "2010-01-01", "end": "2022-01-01"},
   "merge_gap_days": 180,
+  "active_at_start": false,
   "active_at_end": false,
   "spans": [
-    {"phase": "rising", "start": "2011-11-15", "end": "2014-11-02",
-     "days": 1083, "interruptions": 1},
-    {"phase": "peak",   "start": "2014-11-03", "end": "2017-01-26",
-     "days": 815, "interruptions": 0},
-    {"phase": "setting","start": "2017-01-27", "end": "2020-01-23",
-     "days": 1092, "interruptions": 1}
+    {"phase": "rising", "start": "2011-11-15", "end": "2014-11-01",
+     "days": 1083, "gap_days": 80, "in_phase_days": 1003,
+     "interruptions": 1, "starts_before_range": false, "ends_after_range": false},
+    {"phase": "peak", "start": "2014-11-02", "end": "2017-01-25",
+     "days": 816, "gap_days": 0, "in_phase_days": 816,
+     "interruptions": 0, "starts_before_range": false, "ends_after_range": false},
+    {"phase": "setting", "start": "2017-01-26", "end": "2017-06-20",
+     "days": 146, "gap_days": 0, "in_phase_days": 146,
+     "interruptions": 0, "starts_before_range": false, "ends_after_range": false},
+    {"phase": "peak", "start": "2017-06-21", "end": "2017-10-25",
+     "days": 127, "gap_days": 0, "in_phase_days": 127,
+     "interruptions": 0, "starts_before_range": false, "ends_after_range": false},
+    {"phase": "setting", "start": "2017-10-26", "end": "2020-01-23",
+     "days": 820, "gap_days": 0, "in_phase_days": 820,
+     "interruptions": 0, "starts_before_range": false, "ends_after_range": false}
   ],
   "crossings": [
-    {"date": "2011-11-15", "instant_utc": "...", "saturn_sign": "Libra",
-     "phase": "rising", "direction": "direct"}
+    {"date": "2011-11-15", "instant_utc": "2011-11-15T04:42:00Z",
+     "from_sign": "Virgo", "to_sign": "Libra",
+     "from_phase": "off", "to_phase": "rising", "direction": "direct"}
   ]
 }
 ```
 
-Merge policy: consecutive same-phase spans separated by an "off" gap of
-`merge_gap_days` or less are merged into one span, and `interruptions` counts
-the absorbed gaps. `merge_gap_days=0` returns literal spans. The default **180**
-is chosen because the 2011–2020 cycle's retrograde breaks were 80 and 127 days;
-it preserves the classical ~7.5-year reading while `crossings` still exposes
-every entry and exit. This is a policy default, not a mathematical fact, and is
-flagged for astrologer sign-off.
+Date and span semantics:
+
+- All `start`/`end` values are **local calendar dates** in the supplied
+  timezone, inclusive. A span ends on the day before the next phase change.
+- `days` is the inclusive day count of the returned span.
+- `gap_days` is the number of absorbed "off" days inside a merged span;
+  `in_phase_days = days - gap_days`.
+- `interruptions` counts absorbed **off** gaps only (Saturn left the 12/1/2
+  zone and returned). It does not count a retrograde excursion into another
+  Sade Sati phase.
+- Spans are disjoint and chronological. A retrograde excursion from one Sade
+  Sati phase into another (the 2017 setting → peak → setting echo) is its own
+  span, because the phase genuinely changed; it is not merged and not
+  double-counted.
+- Only off gaps of `merge_gap_days` or less are absorbed. The default **180**
+  absorbs the 2011–2020 cycle's 80-day break; `merge_gap_days=0` returns literal
+  spans. This is a presentation policy, not a mathematical fact, and is flagged
+  for astrologer sign-off.
+- `starts_before_range` is true when the phase was already active at
+  `start_date` and the span was clipped to the range edge. `ends_after_range`
+  is the analogous flag at `end_date`.
+- `active_at_start` / `active_at_end` report whether the range boundary itself
+  falls inside a Sade Sati phase.
+- `crossings` lists every Saturn sign change in the range, entries and exits,
+  with `from_phase`/`to_phase` (`rising | peak | setting | off`) and direction.
+  `instant_utc` has minute precision.
 
 ### 7.4 `get_gochara`
 
@@ -241,19 +272,26 @@ known refinement, deferred; the doc records it as a limitation.
   the CI machine.
 - Locking: each `swe.calc_ut` acquires `_SWE_LOCK`; the scan never holds it
   across samples, so other callers interleave.
-- Sade Sati spans are built from Saturn ingresses over the range, clipped at
-  the range boundaries; the phase before the first crossing is inferred from
-  Saturn's sign at `start_date` so a span that began earlier is not lost.
+- Sade Sati spans are built as disjoint segments from the phase at `start_date`
+  plus each Saturn crossing; a phase already active at the range edge yields a
+  span starting at that edge with `starts_before_range=true`, and one still
+  active at `end_date` gets `ends_after_range=true`. Same-phase spans separated
+  by an **off** gap of `merge_gap_days` or less are merged; cross-phase
+  excursions stay separate. `end` is the day before the next change, and all
+  day counts are inclusive calendar days.
 - Ingress instants convert UTC → supplied timezone for the local `date`;
-  UTC→local conversion never lands in a DST gap.
+  UTC→local conversion never lands in a DST gap. `end_date` is inclusive for
+  scans; the internal sample bound is `end_date + 1 day`.
 
 ## 9. Schemas
 
 Add `TRANSIT_INGRESSES_SCHEMA`, `SADE_SATI_TIMELINE_SCHEMA`, and
 `GOCHARA_SCHEMA` to `dashaflow.schemas`, registered in `_SCHEMAS` under
 `"transit_ingresses"`, `"sade_sati_timeline"`, `"gochara"`. Required keys
-match the outputs above; nested planet/event objects are typed as objects,
-consistent with the existing schema style.
+match the outputs above, including `starts_before_range`, `ends_after_range`,
+`active_at_start`, `active_at_end`, `gap_days`, and `in_phase_days`; nested
+planet/event objects are typed as objects, consistent with the existing schema
+style.
 
 ## 10. MCP surface (rishi-ai-mcp)
 
@@ -282,20 +320,26 @@ Engine, new `tests/test_transit_workbench.py`:
    without an intermediate event.
 3. Saturn 2022–2025 includes at least one `direction="retrograde"` ingress
    (the Capricorn/Aquarius loop).
-4. Known anchor: Saturn enters sidereal Pisces within 2023-01-16..2023-01-19.
+4. Known anchors: Saturn enters sidereal Aquarius on 2023-01-17 (assert the
+   local date is 2023-01-16..2023-01-18) and sidereal Pisces on 2025-03-29.
 5. Ketu events mirror Rahu six signs away at the same instants.
 6. Range cap, reversed range, unknown body, Moon body, and malformed dates all
    raise `InvalidInputError`.
-7. Sade Sati for the demo chart (Moon Scorpio): rising/peak/setting spans cover
-   2011-11-15..2020-01-23; `interruptions` ≥ 2 with default merge; each
-   crossing's Saturn sign maps to its reported phase.
-8. `merge_gap_days=0` splits the 2012 and 2017 retrograde breaks into separate
-   spans.
-9. Gochara: SAV total is 337; Jupiter in Cancer for the demo chart reports 9th
-   from Moon, `sav_points=19`, `weighted_verdict="mixed"`; a favourable house
-   with above-average SAV yields `favorable`; unfavourable + below yields
-   `unfavorable`.
-10. Schema validation passes for each output when `jsonschema` is installed
+7. Sade Sati for the demo chart (Moon Scorpio), 2010-01-01..2022-01-01:
+   spans are exactly rising 2011-11-15..2014-11-01 (days 1083, gap_days 80,
+   interruptions 1), peak 2014-11-02..2017-01-25, setting 2017-01-26..2017-06-20,
+   peak echo 2017-06-21..2017-10-25, setting 2017-10-26..2020-01-23;
+   `active_at_start` and `active_at_end` are false.
+8. `merge_gap_days=0` splits the 2012 off gap into two rising spans, and the
+   2017 peak echo remains a separate span under both settings.
+9. Clipped range: a query covering only 2016 yields a peak span with
+   `starts_before_range=true` and `ends_after_range=true`; a query starting
+   inside the rise yields `starts_before_range=true` and `active_at_start=true`.
+10. Gochara: SAV total is 337; Jupiter in Cancer for the demo chart reports 9th
+    from Moon, `sav_points=19`, `weighted_verdict="mixed"`; a favourable house
+    with above-average SAV yields `favorable`; unfavourable + below yields
+    `unfavorable`.
+11. Schema validation passes for each output when `jsonschema` is installed
     (skip otherwise), matching existing schema-test style.
 
 MCP: tool count 12; each tool returns the engine shape; `ToolError` mapping for
