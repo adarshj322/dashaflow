@@ -120,3 +120,27 @@ def test_sade_sati_negative_merge_gap_rejected():
         dashaflow.get_sade_sati_timeline(
             **DEMO, start_date="2010-01-01", end_date="2011-01-01",
             merge_gap_days=-1)
+
+
+def test_gochara_jupiter_cancer_mixed():
+    out = dashaflow.get_gochara(**DEMO, transit_date="2026-06-02")
+    jup = out["planets"]["Jupiter"]
+    assert jup["house_from_moon"] == 9
+    assert jup["sav_points"] == 19
+    assert jup["house_quality"] == "favorable"
+    assert jup["weighted_verdict"] == "mixed"
+    assert out["sav_average"] == 28.08
+
+
+def test_gochara_saturn_pisces_unfavorable():
+    out = dashaflow.get_gochara(**DEMO, transit_date="2026-06-02")
+    sat = out["planets"]["Saturn"]
+    assert sat["house_from_moon"] == 5
+    assert sat["house_quality"] == "unfavorable"
+    assert sat["weighted_verdict"] == "unfavorable"
+
+
+def test_gochara_node_notes_label_raman():
+    out = dashaflow.get_gochara(**DEMO, transit_date="2026-06-02")
+    assert any("Raman convention (nodes)" in n for n in out["planets"]["Rahu"]["notes"])
+    assert all("Raman convention" not in n for n in out["planets"]["Sun"]["notes"])

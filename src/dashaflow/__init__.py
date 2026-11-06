@@ -25,7 +25,7 @@ from .errors import CalculationError, DashaFlowError, EphemerisError, InvalidInp
 from .matchmaking import calc_kuja_dosha, calculate_ashtakoot, match_kuja_dosha
 from .muhurtha import ACTIVITY_RULES, evaluate_muhurtha
 from .sensitivity import get_time_sensitivity
-from .transit import get_sade_sati_timeline, get_transit_ingresses
+from .transit import get_gochara, get_sade_sati_timeline, get_transit_ingresses
 from .vedic_calculator import calculate_transit, calculate_vedic_chart
 
 __all__ = [
@@ -45,6 +45,7 @@ __all__ = [
     "get_strength_table",
     "get_yoga_list",
     "get_time_sensitivity",
+    "get_gochara",
     "get_sade_sati_timeline",
     "get_transit_ingresses",
     "schemas",

@@ -19,6 +19,7 @@ from .errors import InvalidInputError
 from .vedic_calculator import (
     _SWE_LOCK,
     _configure_swiss_ephemeris,
+    calculate_transit,
     calculate_vedic_chart,
 )
 
@@ -360,4 +361,101 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
         "range": {"start": start_date, "end": end_date},
         "bodies": bodies,
         "ingresses": ingresses,
+    }
+
+
+# Favourable transit houses from the natal Moon: BPHS gochara chapter for the
+# seven grahas; Raman's 3/6/11 convention for the nodes (BPHS is silent on them).
+_FAVOURABLE_HOUSES = {
+    "Sun": (3, 6, 10, 11),
+    "Moon": (1, 3, 6, 7, 10, 11),
+    "Mars": (3, 6, 11),
+    "Mercury": (2, 4, 6, 8, 10, 11),
+    "Jupiter": (2, 5, 7, 9, 11),
+    "Venus": (1, 2, 3, 4, 5, 8, 9, 11, 12),
+    "Saturn": (3, 6, 11),
+    "Rahu": (3, 6, 11),
+    "Ketu": (3, 6, 11),
+}
+
+
+def _ordinal(n: int) -> str:
+    """English ordinal for a house number (1st, 2nd, 3rd, 11th...)."""
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def get_gochara(dob: str, time: str, lat: float, lon: float,
+                timezone: str, transit_date: str) -> dict:
+    """
+    Transit quality from the natal Moon, weighted by natal Sarvashtakavarga.
+
+    Positions are taken at local noon on ``transit_date``, the same instant
+    convention as ``cast_transit``. Each planet's transit house from the natal
+    Moon is scored against the classical favourable-house table; the natal
+    sign's SAV points then temper that verdict.
+
+    Parameters
+    ----------
+    dob, time, lat, lon, timezone : natal birth details (``HH:MM[:SS]``).
+    transit_date : ``YYYY-MM-DD``.
+
+    Returns
+    -------
+    dict with ``transit_date``, ``reference`` (always ``"moon"``),
+    ``natal_moon_sign``, ``sav_average``, and ``planets`` mapping each body to
+    ``sign``, ``house_from_moon``, ``is_retrograde``, ``sav_points``,
+    ``house_quality`` (favorable/unfavorable), ``weighted_verdict``
+    (favorable/mixed/unfavorable), and explanatory ``notes``. Node notes carry
+    ``Raman convention (nodes)``; the seven classical planets use BPHS.
+    """
+    validate_birth_input(dob, time, lat, lon, timezone)
+    validate_query_date(transit_date, "transit_date")
+
+    natal_chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
+    transit = calculate_transit(transit_date, natal_chart, timezone)
+
+    sav = natal_chart["ashtakavarga"]["sarvashtakavarga"]
+    sav_average = round(sum(sav.values()) / 12, 2)
+    moon_sign = natal_chart["planets"]["Moon"]["sign"]
+
+    planets = {}
+    for name, data in transit["planets"].items():
+        house = data["house_from_moon"]
+        sav_points = data["sav_points"]
+        favourable = house in _FAVOURABLE_HOUSES[name]
+        above = sav_points >= sav_average
+
+        if favourable and above:
+            verdict = "favorable"
+        elif favourable or above:
+            verdict = "mixed"
+        else:
+            verdict = "unfavorable"
+
+        notes = [
+            f"{_ordinal(house)} from Moon is {'favourable' if favourable else 'unfavourable'}",
+            f"SAV {sav_points} {'at/above' if above else 'below'} sign average {sav_average}",
+        ]
+        if name in ("Rahu", "Ketu"):
+            notes.append(
+                "Raman convention (nodes): BPHS gives no transit house rules for the nodes")
+
+        planets[name] = {
+            "sign": data["sign"],
+            "house_from_moon": house,
+            "is_retrograde": data["is_retrograde"],
+            "sav_points": sav_points,
+            "house_quality": "favorable" if favourable else "unfavorable",
+            "weighted_verdict": verdict,
+            "notes": notes,
+        }
+
+    logger.debug("gochara date=%s moon=%s avg=%s", transit_date, moon_sign, sav_average)
+    return {
+        "transit_date": transit_date,
+        "reference": "moon",
+        "natal_moon_sign": moon_sign,
+        "sav_average": sav_average,
+        "planets": planets,
     }
