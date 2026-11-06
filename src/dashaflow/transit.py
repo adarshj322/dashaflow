@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 
 _INGRESS_BODIES = ("Sun", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu")
 _DEFAULT_BODIES = ("Jupiter", "Saturn", "Rahu")
+# shortcut: one sample per step window can miss a station-graze double-cross
+# inside a single window; upgrade to adaptive stepping near stations if a
+# missed ingress is ever observed in production.
 _STEP_DAYS = {"Sun": 1, "Mars": 1, "Mercury": 1, "Venus": 1,
               "Jupiter": 5, "Saturn": 5, "Rahu": 5, "Ketu": 5}
 _MAX_RANGE_YEARS = 15
@@ -316,8 +319,12 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
         bodies = list(_DEFAULT_BODIES)
     elif isinstance(bodies, str):
         bodies = [bodies]
-    else:
+    elif isinstance(bodies, (list, tuple)):
         bodies = list(bodies)
+    else:
+        raise InvalidInputError(
+            f"Invalid bodies {bodies!r}. Expected a list like "
+            f"{list(_DEFAULT_BODIES)}.")
     if "Moon" in bodies:
         raise InvalidInputError(
             "Moon ingresses are not supported; it changes sign every ~2.25 days. "
@@ -343,9 +350,12 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
     for body in bodies:
         for jd, from_idx, to_idx in _crossings(start_jd, end_jd, body):
             utc = _jd_to_utc_datetime(jd)
+            day = utc.astimezone(tz).date()
+            if day < start or day > end:
+                continue
             ingresses.append({
                 "planet": body,
-                "date": utc.astimezone(tz).date().isoformat(),
+                "date": day.isoformat(),
                 "instant_utc": utc.strftime("%Y-%m-%dT%H:%M:00Z"),
                 "from_sign": ZODIAC_SIGNS[from_idx],
                 "to_sign": ZODIAC_SIGNS[to_idx],

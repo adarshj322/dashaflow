@@ -157,3 +157,23 @@ def test_workbench_schemas_accept_outputs():
     validate("transit_ingresses", ing)
     validate("sade_sati_timeline", ss)
     validate("gochara", go)
+
+
+def test_ingress_non_list_bodies_rejected():
+    with pytest.raises(InvalidInputError):
+        dashaflow.get_transit_ingresses(
+            **DEMO, start_date="2023-01-01", end_date="2023-02-01", bodies=123)
+
+
+def test_ingress_clips_event_at_range_end(monkeypatch):
+    import dashaflow.transit as transit_mod
+    real = transit_mod._crossings
+
+    def fake(start_jd, end_jd, body):
+        return real(start_jd, end_jd, body) + [(end_jd, 9, 0)]
+
+    monkeypatch.setattr(transit_mod, "_crossings", fake)
+    out = dashaflow.get_transit_ingresses(
+        **DEMO, start_date="2023-01-01", end_date="2023-02-01",
+        bodies=["Saturn"])
+    assert all(e["date"] <= "2023-02-01" for e in out["ingresses"])

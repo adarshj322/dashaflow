@@ -137,7 +137,14 @@ SADE_SATI_TIMELINE_SCHEMA = {
                  "active_at_start", "active_at_end", "spans", "crossings"],
     "properties": {
         "natal_moon_sign": {"type": "string"},
-        "range": {"type": "object"},
+        "range": {
+            "type": "object",
+            "required": ["start", "end"],
+            "properties": {
+                "start": {"type": "string"},
+                "end": {"type": "string"},
+            },
+        },
         "merge_gap_days": {"type": "integer", "minimum": 0},
         "active_at_start": {"type": "boolean"},
         "active_at_end": {"type": "boolean"},
