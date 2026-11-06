@@ -229,7 +229,8 @@ Transit positions at local noon on `transit_date` (same instant convention as
 }
 ```
 
-Favourable houses from the Moon (B.V. Raman's table):
+Favourable houses from the Moon (BPHS gochara chapter; Raman reproduces the
+seven-planet table):
 
 | Planet | Favourable houses |
 |---|---|
@@ -242,6 +243,12 @@ Favourable houses from the Moon (B.V. Raman's table):
 | Saturn | 3, 6, 11 |
 | Rahu | 3, 6, 11 |
 | Ketu | 3, 6, 11 |
+
+BPHS's gochara chapter covers the seven grahas and gives no transit house rules
+for the nodes. This implementation follows **B.V. Raman's convention** for Rahu
+and Ketu (3, 6, 11), consistent with the repo's existing BPHS + Raman blend, and
+labels it in `notes` as `Raman convention (nodes)`. The seven classical planets
+are pure BPHS.
 
 `house_quality` is `favorable` or `unfavorable` (houses outside the table).
 `weighted_verdict` combines house quality with SAV:
@@ -339,7 +346,9 @@ Engine, new `tests/test_transit_workbench.py`:
     from Moon, `sav_points=19`, `weighted_verdict="mixed"`; a favourable house
     with above-average SAV yields `favorable`; unfavourable + below yields
     `unfavorable`.
-11. Schema validation passes for each output when `jsonschema` is installed
+11. Gochara provenance: a node entry's `notes` contains `Raman convention
+    (nodes)`; the seven classical planets' notes do not.
+12. Schema validation passes for each output when `jsonschema` is installed
     (skip otherwise), matching existing schema-test style.
 
 MCP: tool count 12; each tool returns the engine shape; `ToolError` mapping for
@@ -367,7 +376,9 @@ Existing 358 engine tests and 33 MCP tests stay green.
 
 ## 14. Judgment calls (defaults chosen, not facts)
 
-- Gochara favourable-house table, including Rahu/Ketu at 3, 6, 11.
+- Gochara favourable-house table: BPHS for the seven grahas; Raman's 3, 6, 11
+  convention for Rahu/Ketu (BPHS is silent on node transits), labeled in
+  `notes`.
 - SAV weighting rather than the transiting planet's BAV (research-note
   commitment; BAV noted as future refinement).
 - `merge_gap_days=180` default and the `interruptions` counter.
