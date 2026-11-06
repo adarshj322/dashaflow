@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.4.1] - 2026-11-06
+
+### Fixed
+- `get_transit_ingresses` clips events whose local date falls outside the inclusive range (range-end midnight leak).
+- Non-list `bodies` now raises `InvalidInputError` instead of a raw `TypeError`.
+- Sade Sati timeline schema pins `range` to `{start, end}`, matching the ingress schema.
+- Documented the station-graze sampling limit in `transit.py` (`shortcut:` comment).
+
 ## [1.4.0] - 2026-11-06
 
 ### Added
