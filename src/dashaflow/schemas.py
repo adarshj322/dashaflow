@@ -93,10 +93,137 @@ CAREER_SCHEMA = {
     },
 }
 
+TRANSIT_INGRESSES_SCHEMA = {
+    "type": "object",
+    "required": ["range", "bodies", "ingresses"],
+    "properties": {
+        "range": {
+            "type": "object",
+            "required": ["start", "end"],
+            "properties": {
+                "start": {"type": "string"},
+                "end": {"type": "string"},
+            },
+        },
+        "bodies": {"type": "array", "items": {"type": "string"}},
+        "ingresses": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["planet", "date", "instant_utc", "from_sign",
+                             "to_sign", "direction", "house_from_lagna",
+                             "house_from_moon"],
+                "properties": {
+                    "planet": {"type": "string"},
+                    "date": {"type": "string"},
+                    "instant_utc": {"type": "string"},
+                    "from_sign": {"type": "string"},
+                    "to_sign": {"type": "string"},
+                    "direction": {"type": "string",
+                                  "enum": ["direct", "retrograde"]},
+                    "house_from_lagna": {"type": "integer", "minimum": 1,
+                                         "maximum": 12},
+                    "house_from_moon": {"type": "integer", "minimum": 1,
+                                        "maximum": 12},
+                },
+            },
+        },
+    },
+}
+
+SADE_SATI_TIMELINE_SCHEMA = {
+    "type": "object",
+    "required": ["natal_moon_sign", "range", "merge_gap_days",
+                 "active_at_start", "active_at_end", "spans", "crossings"],
+    "properties": {
+        "natal_moon_sign": {"type": "string"},
+        "range": {"type": "object"},
+        "merge_gap_days": {"type": "integer", "minimum": 0},
+        "active_at_start": {"type": "boolean"},
+        "active_at_end": {"type": "boolean"},
+        "spans": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["phase", "start", "end", "days", "gap_days",
+                             "in_phase_days", "interruptions",
+                             "starts_before_range", "ends_after_range"],
+                "properties": {
+                    "phase": {"type": "string",
+                              "enum": ["rising", "peak", "setting"]},
+                    "start": {"type": "string"},
+                    "end": {"type": "string"},
+                    "days": {"type": "integer", "minimum": 1},
+                    "gap_days": {"type": "integer", "minimum": 0},
+                    "in_phase_days": {"type": "integer", "minimum": 0},
+                    "interruptions": {"type": "integer", "minimum": 0},
+                    "starts_before_range": {"type": "boolean"},
+                    "ends_after_range": {"type": "boolean"},
+                },
+            },
+        },
+        "crossings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": ["date", "instant_utc", "from_sign", "to_sign",
+                             "from_phase", "to_phase", "direction"],
+                "properties": {
+                    "date": {"type": "string"},
+                    "instant_utc": {"type": "string"},
+                    "from_sign": {"type": "string"},
+                    "to_sign": {"type": "string"},
+                    "from_phase": {"type": "string"},
+                    "to_phase": {"type": "string"},
+                    "direction": {"type": "string",
+                                  "enum": ["direct", "retrograde"]},
+                },
+            },
+        },
+    },
+}
+
+GOCHARA_SCHEMA = {
+    "type": "object",
+    "required": ["transit_date", "reference", "natal_moon_sign",
+                 "sav_average", "planets"],
+    "properties": {
+        "transit_date": {"type": "string"},
+        "reference": {"type": "string", "enum": ["moon"]},
+        "natal_moon_sign": {"type": "string"},
+        "sav_average": {"type": "number"},
+        "planets": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["sign", "house_from_moon", "is_retrograde",
+                             "sav_points", "house_quality",
+                             "weighted_verdict", "notes"],
+                "properties": {
+                    "sign": {"type": "string"},
+                    "house_from_moon": {"type": "integer", "minimum": 1,
+                                        "maximum": 12},
+                    "is_retrograde": {"type": "boolean"},
+                    "sav_points": {"type": "integer", "minimum": 0},
+                    "house_quality": {"type": "string",
+                                      "enum": ["favorable", "unfavorable"]},
+                    "weighted_verdict": {"type": "string",
+                                         "enum": ["favorable", "mixed",
+                                                  "unfavorable"]},
+                    "notes": {"type": "array", "items": {"type": "string"}},
+                },
+            },
+        },
+    },
+}
+
 _SCHEMAS = {
     "compact": COMPACT_CHART_SCHEMA,
     "full": FULL_CHART_SCHEMA,
     "transit": TRANSIT_SCHEMA,
+    "transit_ingresses": TRANSIT_INGRESSES_SCHEMA,
+    "sade_sati_timeline": SADE_SATI_TIMELINE_SCHEMA,
+    "gochara": GOCHARA_SCHEMA,
     "compatibility": COMPATIBILITY_SCHEMA,
     "muhurtha": MUHURTHA_SCHEMA,
     "career": CAREER_SCHEMA,

@@ -57,6 +57,9 @@ print(career["career_themes"])
 | `cast_chart(dob, time, lat, lon, timezone, query_date=None, ephe_path='')` | Complete natal chart — planets, dashas, yogas, ashtakavarga, shadbala, vargas, and more |
 | `cast_charts(births, query_date=None, ephe_path='', max_workers=4)` | Batch natal charts over the thread-safe engine, in input order |
 | `cast_transit(transit_date, dob_str, time_str, lat, lon, timezone="Asia/Kolkata")` | Planetary transits overlaid on natal chart with SAV points, Sade Sati, Rahu-Ketu axis |
+| `get_transit_ingresses(dob, time, lat, lon, timezone, start_date, end_date, bodies=None)` | Exact sign-change instants over a range (15 years max), incl. retrograde re-entries; houses from Lagna and Moon |
+| `get_sade_sati_timeline(dob, time, lat, lon, timezone, start_date, end_date, merge_gap_days=180)` | Sade Sati rising/peak/setting spans with gap absorption, clipped-range flags, and raw Saturn crossings |
+| `get_gochara(dob, time, lat, lon, timezone, transit_date)` | Transit quality from the natal Moon: favourable-house rule weighted by natal SAV |
 | `summarize_chart(chart, detail="compact", time_sensitivity=None)` | Compact <4KB projection for AI agents; `detail="full"` returns the chart unchanged; optional sensitivity dict injected verbatim |
 | `get_time_sensitivity(dob, time, lat, lon, timezone, window_minutes=4, query_date=None, ephe_path='')` | Birth-time sensitivity: Lagna/Moon/house/balance stability over ±window with robust/borderline/fragile verdict |
 | `get_dasha_periods(chart)` | Full Vimshottari/Yogini/Chara chains with dates |
@@ -109,6 +112,62 @@ from dashaflow.muhurtha import ACTIVITY_RULES  # the 6 supported activity keys
 | `upapada` | Upapada Lagna (A12) with lord and 2nd from UL |
 | `karakamsha` | AK in Navamsha, Ishta Devata, planets in Karakamsha |
 
+## Transit Timing
+
+`cast_transit` answers "where are the planets on date X". Three range-oriented
+getters answer timing questions:
+
+```python
+# When does Saturn change sign? (15-year cap, inclusive local dates)
+dashaflow.get_transit_ingresses(
+    dob="1990-04-15", time="14:30", lat=28.6139, lon=77.2090,
+    timezone="Asia/Kolkata", start_date="2023-01-01", end_date="2026-01-01",
+    bodies=["Jupiter", "Saturn", "Rahu"])
+
+# Sade Sati spans, retrograde echoes included
+dashaflow.get_sade_sati_timeline(
+    dob="1990-04-15", time="14:30", lat=28.6139, lon=77.2090,
+    timezone="Asia/Kolkata", start_date="2010-01-01", end_date="2022-01-01")
+
+# Transit quality from the Moon on one date
+dashaflow.get_gochara(
+    dob="1990-04-15", time="14:30", lat=28.6139, lon=77.2090,
+    timezone="Asia/Kolkata", transit_date="2026-06-02")
+```
+
+Ingresses carry `date` (local calendar date), `instant_utc` (minute precision),
+`from_sign`, `to_sign`, `direction`, and houses from Lagna and Moon. A planet
+that retrogrades back over a boundary appears twice — both crossings are real
+events, never collapsed.
+
+Sade Sati spans are disjoint and carry `days`, `gap_days`, `in_phase_days`,
+`interruptions`, `starts_before_range`, `ends_after_range`, plus range-edge
+`active_at_start`/`active_at_end`. Only "off" gaps of `merge_gap_days` or less
+are absorbed into a span; a retrograde excursion into a *different* phase stays
+its own span and is also listed in `crossings`.
+
+Gochara scores each transiting planet by its house from the natal Moon:
+
+| Planet | Favourable houses |
+|---|---|
+| Sun | 3, 6, 10, 11 |
+| Moon | 1, 3, 6, 7, 10, 11 |
+| Mars | 3, 6, 11 |
+| Mercury | 2, 4, 6, 8, 10, 11 |
+| Jupiter | 2, 5, 7, 9, 11 |
+| Venus | 1, 2, 3, 4, 5, 8, 9, 11, 12 |
+| Saturn | 3, 6, 11 |
+| Rahu | 3, 6, 11 |
+| Ketu | 3, 6, 11 |
+
+The seven classical planets follow BPHS. BPHS gives no transit house rules for
+the nodes; this package uses B.V. Raman's 3, 6, 11 convention and labels it in
+`notes` as `Raman convention (nodes)`. The house verdict is then weighted by the
+natal sign's Sarvashtakavarga points: favourable + at/above average is
+`favorable`, favourable + below (or unfavourable + at/above) is `mixed`, and
+unfavourable + below is `unfavorable`. Using the transiting planet's own BAV is
+a known refinement, deferred.
+
 ## Features
 
 - **Natal Chart** — Lagna, 9 grahas, whole-sign houses, nakshatras with padas, dignities
@@ -137,6 +196,7 @@ dashaflow/
 ├── errors.py           DashaFlowError, InvalidInputError, EphemerisError, CalculationError
 ├── _version.py         Single-sourced package version
 ├── vedic_calculator.py Core engine — Swiss Ephemeris computations
+├── transit.py          Transit workbench — ingresses, Sade Sati, gochara
 ├── constants.py        Zodiac, nakshatras, dignity tables, house sets
 ├── nakshatra.py        Nakshatra lookup from longitude
 ├── panchang.py         Tithi, Vara, Yoga, Karana
