@@ -67,3 +67,56 @@ def test_ingress_local_date_across_utc_midnight():
 def test_ingress_validation(kwargs):
     with pytest.raises(InvalidInputError):
         dashaflow.get_transit_ingresses(**DEMO, **kwargs)
+
+
+def test_sade_sati_spans_demo_chart():
+    out = dashaflow.get_sade_sati_timeline(
+        **DEMO, start_date="2010-01-01", end_date="2022-01-01")
+    assert out["natal_moon_sign"] == "Scorpio"
+    assert out["active_at_start"] is False
+    assert out["active_at_end"] is False
+    spans = out["spans"]
+    assert spans[0] == {"phase": "rising", "start": "2011-11-15",
+                        "end": "2014-11-01", "days": 1083, "gap_days": 80,
+                        "in_phase_days": 1003, "interruptions": 1,
+                        "starts_before_range": False, "ends_after_range": False}
+    assert [s["phase"] for s in spans] == ["rising", "peak", "setting", "peak", "setting"]
+    assert spans[-1]["start"] == "2017-10-26"
+    assert spans[-1]["end"] == "2020-01-23"
+
+
+def test_sade_sati_zero_merge_splits_off_gap():
+    out = dashaflow.get_sade_sati_timeline(
+        **DEMO, start_date="2010-01-01", end_date="2022-01-01",
+        merge_gap_days=0)
+    rising = [s for s in out["spans"] if s["phase"] == "rising"]
+    assert len(rising) == 2
+    assert rising[0]["end"] == "2012-05-15"
+    assert rising[1]["start"] == "2012-08-04"
+
+
+def test_sade_sati_clipped_range_flags():
+    out = dashaflow.get_sade_sati_timeline(
+        **DEMO, start_date="2016-01-01", end_date="2016-12-31")
+    span = out["spans"][0]
+    assert span["phase"] == "peak"
+    assert span["starts_before_range"] is True
+    assert span["ends_after_range"] is True
+    assert out["active_at_start"] is True
+    assert out["active_at_end"] is True
+
+
+def test_sade_sati_crossings_have_phases():
+    out = dashaflow.get_sade_sati_timeline(
+        **DEMO, start_date="2017-01-01", end_date="2018-01-01")
+    echo = [c for c in out["crossings"] if c["to_phase"] == "peak"]
+    assert echo and echo[0]["date"] == "2017-06-21"
+    assert echo[0]["from_phase"] == "setting"
+    assert echo[0]["direction"] == "retrograde"
+
+
+def test_sade_sati_negative_merge_gap_rejected():
+    with pytest.raises(InvalidInputError):
+        dashaflow.get_sade_sati_timeline(
+            **DEMO, start_date="2010-01-01", end_date="2011-01-01",
+            merge_gap_days=-1)
