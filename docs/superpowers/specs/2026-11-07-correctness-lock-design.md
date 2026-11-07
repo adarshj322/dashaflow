@@ -119,6 +119,10 @@ Lahiri at the same Julian day:
 | `yukteshwar` | Yukteshwar | `SIDM_YUKTESHWAR` | −1.3783° |
 | `fagan_bradley` | Fagan-Bradley | `SIDM_FAGAN_BRADLEY` | +0.8832° |
 
+Offsets compare ayanamsha values. Since sidereal longitude is tropical minus
+ayanamsha, a smaller ayanamsha (Raman, Yukteshwar) shifts sidereal longitudes
+forward by that amount; Fagan-Bradley's larger ayanamsha shifts them back.
+
 Aliases normalize case, spaces, and hyphens: `icrc`, `true_chitra`, `kp`,
 `kp_old`, `kp_new`, `kp_vp291`, `yukteshvara`, `fagan-bradley`.
 

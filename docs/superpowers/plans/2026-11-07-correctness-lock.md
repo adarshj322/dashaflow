@@ -184,6 +184,8 @@ Add `from dashaflow.vedic_calculator import calculate_vedic_chart` to the top of
 
 ```python
 DELHI_1975 = ("1975-01-15", "09:00", 28.6139, 77.2090, "Asia/Kolkata")
+DELHI_1990 = ("1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata")
+DELHI_1990_CUSP = ("1990-04-15", "11:35", 28.6139, 77.2090, "Asia/Kolkata")
 
 
 def test_default_metadata_unchanged():
@@ -202,10 +204,11 @@ def test_raman_metadata_and_ayanamsha():
 
 
 def test_raman_flips_cusp_chart():
-    lahiri = calculate_vedic_chart(*DELHI_1975)
-    raman = calculate_vedic_chart(*DELHI_1975, ayanamsha="raman")
-    assert lahiri["lagna"]["sign"] == "Aquarius"
-    assert raman["lagna"]["sign"] == "Capricorn"
+    # Raman's ayanamsha is smaller, so its sidereal longitudes run ~1.4463 deg ahead.
+    lahiri = calculate_vedic_chart(*DELHI_1990_CUSP)
+    raman = calculate_vedic_chart(*DELHI_1990_CUSP, ayanamsha="raman")
+    assert lahiri["lagna"]["sign"] == "Gemini"
+    assert raman["lagna"]["sign"] == "Cancer"
 
 
 def test_invalid_variant_rejected_by_direct_caller():
@@ -257,6 +260,7 @@ git commit -m "feat: expose ayanamsha variant in chart calculation and metadata"
 
 **Files:**
 - Modify: `src/dashaflow/__init__.py` (`cast_chart`, `cast_charts`, `calculate_compatibility`, `check_muhurtha`, `analyze_career`; module docstring)
+- Modify: `src/dashaflow/sensitivity.py` (`get_time_sensitivity`)
 - Modify: `src/dashaflow/access.py` (`summarize_chart`)
 - Modify: `src/dashaflow/schemas.py` (`COMPACT_CHART_SCHEMA`)
 - Test: `tests/test_ayanamsha.py`, `tests/test_access_shape.py`
@@ -271,6 +275,7 @@ git commit -m "feat: expose ayanamsha variant in chart calculation and metadata"
   calculate_compatibility(..., ayanamsha: str = "lahiri") -> dict
   check_muhurtha(..., timezone: str, ayanamsha: str = "lahiri") -> dict
   analyze_career(..., timezone: str, ayanamsha: str = "lahiri") -> dict
+  get_time_sensitivity(..., ephe_path='', ayanamsha: str = "lahiri") -> dict
   summarize_chart(...) compact adds "ayanamsha": str, "ayanamsha_variant": str
   ```
 
@@ -280,9 +285,9 @@ Add `import dashaflow` to the top of `tests/test_ayanamsha.py`, then append:
 
 ```python
 def test_cast_chart_variant_pass_through():
-    chart = dashaflow.cast_chart(*DELHI_1975, ayanamsha="raman")
+    chart = dashaflow.cast_chart(*DELHI_1990_CUSP, ayanamsha="raman")
     assert chart["metadata"]["ayanamsha_variant"] == "raman"
-    assert chart["lagna"]["sign"] == "Capricorn"
+    assert chart["lagna"]["sign"] == "Cancer"
 
 
 def test_cast_chart_invalid_variant():
@@ -320,6 +325,24 @@ def test_every_natal_api_forwards_variant(monkeypatch):
     calls.clear()
     dashaflow.analyze_career(*DELHI_1975, ayanamsha="raman")
     assert calls == ["raman"]
+
+
+def test_time_sensitivity_forwards_variant(monkeypatch):
+    import dashaflow.sensitivity as sensitivity
+
+    seen = []
+    real = sensitivity.calculate_vedic_chart
+
+    def recording(*args, **kwargs):
+        seen.append(kwargs.get("ayanamsha"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(sensitivity, "calculate_vedic_chart", recording)
+    dashaflow.get_time_sensitivity(*DELHI_1990, ayanamsha="raman")
+    assert seen == ["raman", "raman", "raman"]
+
+    with pytest.raises(InvalidInputError, match="Unknown ayanamsha"):
+        dashaflow.get_time_sensitivity(*DELHI_1990, ayanamsha="nope")
 ```
 
 Append to `tests/test_access_shape.py`:
@@ -343,6 +366,7 @@ Expected: FAIL — unexpected keyword `ayanamsha`, and missing compact keys.
 
 - Import `validate_ayanamsha` in `__init__.py`; call it at the top of each modified function.
 - Append `ayanamsha` after the existing last argument and pass `ayanamsha=ayanamsha` to every `calculate_vedic_chart` call in `cast_chart`, `cast_charts`, `calculate_compatibility`, `check_muhurtha`, and `analyze_career`.
+- In `get_time_sensitivity`, append `ayanamsha` after `ephe_path`, call `validate_ayanamsha`, and pass it to all three `calculate_vedic_chart` calls (base, lo, hi).
 - In `summarize_chart`'s compact result, add:
   ```python
   "ayanamsha": chart.get("metadata", {}).get("ayanamsha"),
@@ -359,8 +383,8 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/dashaflow/__init__.py src/dashaflow/access.py src/dashaflow/schemas.py \
-        tests/test_ayanamsha.py tests/test_access_shape.py
+git add src/dashaflow/__init__.py src/dashaflow/sensitivity.py src/dashaflow/access.py \
+        src/dashaflow/schemas.py tests/test_ayanamsha.py tests/test_access_shape.py
 git commit -m "feat: thread ayanamsha variant through natal public APIs"
 ```
 
@@ -393,14 +417,15 @@ Add `import concurrent.futures`, `import copy`, and
 
 ```python
 def test_calculate_transit_reads_variant_from_natal():
-    lahiri = dashaflow.cast_chart(*DELHI_1975, ayanamsha="lahiri")
-    raman = dashaflow.cast_chart(*DELHI_1975, ayanamsha="raman")
+    lahiri = dashaflow.cast_chart(*DELHI_1990_CUSP, ayanamsha="lahiri")
+    raman = dashaflow.cast_chart(*DELHI_1990_CUSP, ayanamsha="raman")
     t_l = calculate_transit("2026-03-29", lahiri, "Asia/Kolkata")
     t_r = calculate_transit("2026-03-29", raman, "Asia/Kolkata")
-    assert t_l["planets"]["Sun"]["degree"] != t_r["planets"]["Sun"]["degree"]
-    shift = (t_r["planets"]["Sun"]["house_from_lagna"]
-             - t_l["planets"]["Sun"]["house_from_lagna"]) % 12
-    assert shift == 1
+    # The scan uses the Raman natal lagna (Cancer) and shifts the Sun forward.
+    assert t_l["planets"]["Sun"]["house_from_lagna"] == 10
+    assert t_r["planets"]["Sun"]["house_from_lagna"] == 9
+    delta = (t_r["planets"]["Sun"]["degree"] - t_l["planets"]["Sun"]["degree"]) % 30
+    assert abs(delta - 1.4463) < 0.02
 
 
 def test_transit_pre_15_chart_defaults_lahiri():
@@ -420,45 +445,49 @@ def test_cast_transit_variant_passthrough():
 
 
 def test_gochara_variant_changes_reference():
-    common = dict(dob=DELHI_1975[0], time=DELHI_1975[1], lat=DELHI_1975[2],
-                  lon=DELHI_1975[3], timezone=DELHI_1975[4],
+    common = dict(dob=DELHI_1990[0], time=DELHI_1990[1], lat=DELHI_1990[2],
+                  lon=DELHI_1990[3], timezone=DELHI_1990[4],
                   transit_date="2026-06-02")
     lahiri = dashaflow.get_gochara(**common)
     raman = dashaflow.get_gochara(**common, ayanamsha="raman")
-    assert lahiri["natal_moon_sign"] == "Aquarius"
-    assert raman["natal_moon_sign"] == "Capricorn"
+    assert lahiri["natal_moon_sign"] == "Scorpio"
+    assert raman["natal_moon_sign"] == "Sagittarius"
 
 
 def test_ingress_variant_changes_natal_houses():
-    common = dict(dob=DELHI_1975[0], time=DELHI_1975[1], lat=DELHI_1975[2],
-                  lon=DELHI_1975[3], timezone=DELHI_1975[4],
+    common = dict(dob=DELHI_1990_CUSP[0], time=DELHI_1990_CUSP[1],
+                  lat=DELHI_1990_CUSP[2], lon=DELHI_1990_CUSP[3],
+                  timezone=DELHI_1990_CUSP[4],
                   start_date="2026-01-01", end_date="2026-02-01", bodies=["Sun"])
     lahiri = dashaflow.get_transit_ingresses(**common)
     raman = dashaflow.get_transit_ingresses(**common, ayanamsha="raman")
     assert lahiri["ingresses"] and raman["ingresses"]
-    shift = (raman["ingresses"][0]["house_from_lagna"]
-             - lahiri["ingresses"][0]["house_from_lagna"]) % 12
-    assert shift == 1
+    assert lahiri["ingresses"][0]["to_sign"] == "Capricorn"
+    assert raman["ingresses"][0]["to_sign"] == "Capricorn"
+    assert lahiri["ingresses"][0]["house_from_lagna"] == 8
+    assert raman["ingresses"][0]["house_from_lagna"] == 7
+    assert (lahiri["ingresses"][0]["instant_utc"]
+            != raman["ingresses"][0]["instant_utc"])
 
 
 def test_sade_sati_variant_changes_natal_moon():
-    common = dict(dob=DELHI_1975[0], time=DELHI_1975[1], lat=DELHI_1975[2],
-                  lon=DELHI_1975[3], timezone=DELHI_1975[4],
+    common = dict(dob=DELHI_1990[0], time=DELHI_1990[1], lat=DELHI_1990[2],
+                  lon=DELHI_1990[3], timezone=DELHI_1990[4],
                   start_date="2026-01-01", end_date="2026-02-01")
-    assert dashaflow.get_sade_sati_timeline(**common)["natal_moon_sign"] == "Aquarius"
+    assert dashaflow.get_sade_sati_timeline(**common)["natal_moon_sign"] == "Scorpio"
     assert dashaflow.get_sade_sati_timeline(
-        **common, ayanamsha="raman")["natal_moon_sign"] == "Capricorn"
+        **common, ayanamsha="raman")["natal_moon_sign"] == "Sagittarius"
 
 
 def test_concurrent_transit_scans_do_not_mix():
     def work(variant):
         return dashaflow.get_gochara(
-            *DELHI_1975, transit_date="2026-06-02",
+            *DELHI_1990, transit_date="2026-06-02",
             ayanamsha=variant)["natal_moon_sign"]
 
     variants = ["lahiri", "raman"] * 4
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        assert list(pool.map(work, variants)) == ["Aquarius", "Capricorn"] * 4
+        assert list(pool.map(work, variants)) == ["Scorpio", "Sagittarius"] * 4
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -586,7 +615,7 @@ def test_concurrent_variants_do_not_mix():
 
     def work(variant):
         chart = dashaflow.cast_chart(
-            "1975-01-15", "09:00", 28.6139, 77.2090, "Asia/Kolkata",
+            "1990-04-15", "11:35", 28.6139, 77.2090, "Asia/Kolkata",
             ayanamsha=variant)
         return (chart["metadata"]["ayanamsha_variant"],
                 chart["lagna"]["sign"],
@@ -597,8 +626,8 @@ def test_concurrent_variants_do_not_mix():
 
     for variant, (key, sign, degrees) in zip(variants, results):
         assert key == variant
-        assert sign == ("Aquarius" if variant == "lahiri" else "Capricorn")
-        expected = 23.5084 if variant == "lahiri" else 22.0621
+        assert sign == ("Gemini" if variant == "lahiri" else "Cancer")
+        expected = 23.7214 if variant == "lahiri" else 22.2751
         assert abs(degrees - expected) < 0.001
 ```
 
@@ -804,10 +833,14 @@ def test_variant_metadata_rung():
     assert raman["ayanamsha_degrees"] != lahiri["ayanamsha_degrees"]
 
 
-def test_raman_flips_a_corpus_lagna():
+def test_raman_shift_matches_ayanamsha_difference():
     entry = next(e for e in CHARTS if e["name"] == "delhi_1975")
-    assert _cast(entry)["lagna"]["sign"] == "Aquarius"
-    assert _cast(entry, ayanamsha="raman")["lagna"]["sign"] == "Capricorn"
+    lahiri = _cast(entry)
+    raman = _cast(entry, ayanamsha="raman")
+    moon_delta = (_sidereal_absolute(raman["planets"]["Moon"])
+                  - _sidereal_absolute(lahiri["planets"]["Moon"])) % 360
+    # Raman's ayanamsha is smaller, so its sidereal longitudes sit ahead.
+    assert abs(moon_delta - 1.4463) < 0.01
 
 
 def test_separation_guards():
@@ -906,12 +939,12 @@ Append to `test_rishi_ai_mcp.py`:
 
 ```python
 class TestAyanamshaVariants(unittest.TestCase):
-    BIRTH = ("1975-01-15", "09:00", 28.6139, 77.2090, "Asia/Kolkata")
+    BIRTH = ("1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata")
 
     def test_compact_chart_names_variant(self):
         result = cast_vedic_chart(*self.BIRTH, ayanamsha="raman")
         self.assertEqual(result["ayanamsha_variant"], "raman")
-        self.assertEqual(result["lagna"]["sign"], "Capricorn")
+        self.assertEqual(result["planets"]["Moon"]["sign"], "Sagittarius")
 
     def test_invalid_variant_is_tool_error(self):
         from mcp.server.fastmcp.exceptions import ToolError
@@ -931,10 +964,10 @@ class TestAyanamshaVariants(unittest.TestCase):
         common = dict(dob=self.BIRTH[0], time=self.BIRTH[1], lat=self.BIRTH[2],
                       lon=self.BIRTH[3], timezone=self.BIRTH[4],
                       transit_date="2026-06-02")
-        self.assertEqual(get_gochara_tool(**common)["natal_moon_sign"], "Aquarius")
+        self.assertEqual(get_gochara_tool(**common)["natal_moon_sign"], "Scorpio")
         self.assertEqual(
             get_gochara_tool(**common, ayanamsha="raman")["natal_moon_sign"],
-            "Capricorn")
+            "Sagittarius")
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -1061,10 +1094,10 @@ python -m venv /tmp/opencode/df150
 /tmp/opencode/df150/bin/pip install --no-cache-dir dashaflow==1.5.0
 /tmp/opencode/df150/bin/python - <<'EOF'
 import dashaflow
-chart = dashaflow.cast_chart("1975-01-15", "09:00", 28.6139, 77.2090, "Asia/Kolkata",
+chart = dashaflow.cast_chart("1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
                              ayanamsha="raman")
 assert chart["metadata"]["ayanamsha_variant"] == "raman"
-assert chart["lagna"]["sign"] == "Capricorn"
+assert chart["planets"]["Moon"]["sign"] == "Sagittarius"
 print("dashaflow", dashaflow.__version__, "ok")
 EOF
 ```
@@ -1099,7 +1132,6 @@ Expected: prints `dashaflow 1.5.0 ok`. If PyPI has not propagated yet, retry aft
 - `system_prompt.md` routing rule: Lahiri unless the user names a system; state the variant; KP only with sub-lord analysis.
 
 ### Changed
-- `cast_vedic_chart` reuses its already-cast chart for the sensitivity verdict (one fewer cast).
 - Requires `dashaflow>=1.5.0`.
 ```
 
@@ -1147,10 +1179,10 @@ from rishi_ai_mcp import cast_vedic_chart
 tools = asyncio.run(rishi_ai_mcp.mcp.list_tools())
 assert len(tools) == 12
 assert all("ayanamsha" in t.inputSchema["properties"] for t in tools)
-chart = cast_vedic_chart("1975-01-15", "09:00", 28.6139, 77.2090,
+chart = cast_vedic_chart("1990-04-15", "14:30", 28.6139, 77.2090,
                          "Asia/Kolkata", ayanamsha="raman")
 assert chart["ayanamsha_variant"] == "raman"
-assert chart["lagna"]["sign"] == "Capricorn"
+assert chart["planets"]["Moon"]["sign"] == "Sagittarius"
 print("rishi-ai-mcp", rishi_ai_mcp.__version__, "ok")
 EOF
 ```
