@@ -63,3 +63,22 @@ def test_variant_shift_matches_ayanamsha_difference(birth, variant):
         delta = (_absolute(other["planets"][name])
                  - _absolute(lahiri["planets"][name])) % 360
         assert abs(delta - expected) < 0.001, (birth, variant, name)
+
+
+@settings(max_examples=25, deadline=None)
+@given(birth_input())
+def test_dasha_timeline_integrity(birth):
+    chart = dashaflow.cast_chart(*birth)
+    moon = chart["planets"]["Moon"]
+    timeline = chart["dashas"]["timeline"]
+    assert timeline[0]["planet"] == moon["nakshatra_lord"]
+    for earlier, later in zip(timeline, timeline[1:], strict=False):
+        assert earlier["end"] == later["start"]
+
+
+@pytest.mark.parametrize("dob", ["1900-01-01", "2100-12-31"])
+def test_dasha_contiguous_at_range_edges(dob):
+    chart = dashaflow.cast_chart(dob, "12:00", 28.6139, 77.2090, "Asia/Kolkata")
+    timeline = chart["dashas"]["timeline"]
+    for earlier, later in zip(timeline, timeline[1:], strict=False):
+        assert earlier["end"] == later["start"]
