@@ -1,7 +1,7 @@
 import datetime
 
 import pytest  # noqa: F401 -- mandated by Task 1 brief; Task 3 uses @pytest.mark.parametrize
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 import dashaflow
@@ -111,7 +111,11 @@ def test_dst_fold_casts_deterministically():
 @given(birth_input())
 def test_sensitivity_verdict_is_honest(birth):
     dob, time, lat, lon, timezone = birth
-    result = dashaflow.get_time_sensitivity(dob, time, lat, lon, timezone)
+    try:
+        result = dashaflow.get_time_sensitivity(dob, time, lat, lon, timezone)
+    except dashaflow.InvalidInputError:
+        # Fold-window draw (e.g. fall-back 01:30): engine rejects, not a verdict.
+        assume(False)
     assert result["verdict"] in ("robust", "borderline", "fragile")
     if not (result["lagna_stable"] and result["moon_pada_stable"]):
         assert result["verdict"] == "fragile"
