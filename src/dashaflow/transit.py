@@ -19,6 +19,7 @@ from .constants import PLANETS, ZODIAC_SIGNS
 from .errors import InvalidInputError
 from .vedic_calculator import (
     _SWE_LOCK,
+    _check_ephemeris_flags,
     _configure_swiss_ephemeris,
     calculate_transit,
     calculate_vedic_chart,
@@ -85,9 +86,11 @@ def _longitude(jd: float, body: str, ayanamsha: str = "lahiri") -> float:
     with _SWE_LOCK:
         _configure_swiss_ephemeris('', ayanamsha)
         if body == "Ketu":
-            res, _ = swe.calc_ut(jd, PLANETS["Rahu"], swe.FLG_SIDEREAL)
+            res, calc_flags = swe.calc_ut(jd, PLANETS["Rahu"], swe.FLG_SIDEREAL)
+            _check_ephemeris_flags(calc_flags)
             return (res[0] + 180.0) % 360.0
-        res, _ = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL)
+        res, calc_flags = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL)
+        _check_ephemeris_flags(calc_flags)
         return res[0]
 
 
@@ -102,7 +105,8 @@ def _is_retrograde(jd: float, body: str, ayanamsha: str = "lahiri") -> bool:
         return True
     with _SWE_LOCK:
         _configure_swiss_ephemeris('', ayanamsha)
-        res, _ = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL | swe.FLG_SPEED)
+        res, calc_flags = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL | swe.FLG_SPEED)
+        _check_ephemeris_flags(calc_flags)
     return res[3] < 0
 
 
