@@ -82,3 +82,26 @@ def test_dasha_contiguous_at_range_edges(dob):
     timeline = chart["dashas"]["timeline"]
     for earlier, later in zip(timeline, timeline[1:], strict=False):
         assert earlier["end"] == later["start"]
+
+
+@settings(max_examples=25, deadline=None)
+@given(birth_input(), st.sampled_from(VARIANTS))
+def test_same_inputs_identical_chart(birth, variant):
+    first = dashaflow.cast_chart(*birth, ayanamsha=variant)
+    second = dashaflow.cast_chart(*birth, ayanamsha=variant)
+    # computed_at_utc is a wall-clock stamp, not chart content (same
+    # convention as test_production.py::test_determinism_same_inputs_same_outputs).
+    first["metadata"].pop("computed_at_utc")
+    second["metadata"].pop("computed_at_utc")
+    assert first == second
+
+
+def test_dst_fold_casts_deterministically():
+    kwargs = dict(time="01:30", lat=40.7128, lon=-74.0060,
+                  timezone="America/New_York")
+    # The engine refuses ambiguous fall-back hours (is_dst=None in _to_jd),
+    # so determinism here means it rejects identically on every cast.
+    with pytest.raises(dashaflow.InvalidInputError):
+        dashaflow.cast_chart("2024-11-03", **kwargs)
+    with pytest.raises(dashaflow.InvalidInputError):
+        dashaflow.cast_chart("2024-11-03", **kwargs)
