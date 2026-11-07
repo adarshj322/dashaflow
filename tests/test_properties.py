@@ -105,3 +105,13 @@ def test_dst_fold_casts_deterministically():
         dashaflow.cast_chart("2024-11-03", **kwargs)
     with pytest.raises(dashaflow.InvalidInputError):
         dashaflow.cast_chart("2024-11-03", **kwargs)
+
+
+@settings(max_examples=25, deadline=None)
+@given(birth_input())
+def test_sensitivity_verdict_is_honest(birth):
+    dob, time, lat, lon, timezone = birth
+    result = dashaflow.get_time_sensitivity(dob, time, lat, lon, timezone)
+    assert result["verdict"] in ("robust", "borderline", "fragile")
+    if not (result["lagna_stable"] and result["moon_pada_stable"]):
+        assert result["verdict"] == "fragile"
