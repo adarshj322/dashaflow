@@ -128,3 +128,12 @@ class TestSummarizeSensitivityInjection:
 
     def test_compact_lagna_carries_vargottama(self):
         assert dashaflow.summarize_chart(_chart())["lagna"]["is_vargottama"] is False
+
+
+def test_compact_projection_names_variant():
+    chart = dashaflow.cast_chart(
+        "1975-01-15", "09:00", 28.6139, 77.2090, "Asia/Kolkata",
+        ayanamsha="raman")
+    compact = summarize_chart(chart)
+    assert compact["ayanamsha"] == "Raman"
+    assert compact["ayanamsha_variant"] == "raman"

@@ -86,6 +86,8 @@ def summarize_chart(chart: dict, detail: str = "compact",
         "_yoga_detail": "call get_yoga_list for formed_by and descriptions",
         "sav": chart.get("ashtakavarga", {}).get("sarvashtakavarga", {}),
         "doshas": doshas,
+        "ayanamsha": chart.get("metadata", {}).get("ayanamsha"),
+        "ayanamsha_variant": chart.get("metadata", {}).get("ayanamsha_variant", "lahiri"),
         "query_date": chart.get("metadata", {}).get("query_date"),
     }
     if time_sensitivity is not None:

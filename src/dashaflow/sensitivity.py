@@ -9,7 +9,12 @@ borderline charts instead of asserting them.
 
 import datetime
 
-from ._validation import validate_birth_input, validate_ephe_path, validate_query_date
+from ._validation import (
+    validate_ayanamsha,
+    validate_birth_input,
+    validate_ephe_path,
+    validate_query_date,
+)
 from .errors import InvalidInputError
 from .vedic_calculator import calculate_vedic_chart
 
@@ -34,7 +39,8 @@ def _moon_key(chart: dict) -> tuple:
 
 def get_time_sensitivity(dob: str, time: str, lat: float, lon: float,
                          timezone: str, window_minutes: int = 4,
-                         query_date: str = None, ephe_path: str = '') -> dict:
+                         query_date: str = None, ephe_path: str = '',
+                         ayanamsha: str = "lahiri") -> dict:
     """Report how the chart changes across a birth-time uncertainty window.
 
     Casts the chart at time-window and time+window and diffs the three.
@@ -45,15 +51,19 @@ def get_time_sensitivity(dob: str, time: str, lat: float, lon: float,
     validate_birth_input(dob, time, lat, lon, timezone)
     validate_query_date(query_date, "query_date")
     validate_ephe_path(ephe_path)
+    validate_ayanamsha(ayanamsha)
     if not isinstance(window_minutes, (int, float)) or window_minutes <= 0:
         raise InvalidInputError(
             f"Invalid window_minutes '{window_minutes}'. Must be a positive number.")
 
-    base = calculate_vedic_chart(dob, time, lat, lon, timezone, query_date, ephe_path)
+    base = calculate_vedic_chart(dob, time, lat, lon, timezone, query_date, ephe_path,
+                                 ayanamsha=ayanamsha)
     lo_dob, lo_time = _shift(dob, time, -window_minutes)
     hi_dob, hi_time = _shift(dob, time, +window_minutes)
-    lo = calculate_vedic_chart(lo_dob, lo_time, lat, lon, timezone, query_date, ephe_path)
-    hi = calculate_vedic_chart(hi_dob, hi_time, lat, lon, timezone, query_date, ephe_path)
+    lo = calculate_vedic_chart(lo_dob, lo_time, lat, lon, timezone, query_date, ephe_path,
+                               ayanamsha=ayanamsha)
+    hi = calculate_vedic_chart(hi_dob, hi_time, lat, lon, timezone, query_date, ephe_path,
+                               ayanamsha=ayanamsha)
     charts = (lo, base, hi)
 
     base_sign, base_deg = _lagna_key(base)

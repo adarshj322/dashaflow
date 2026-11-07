@@ -1,6 +1,7 @@
 import pytest
 import swisseph as swe
 
+import dashaflow
 from dashaflow import InvalidInputError
 from dashaflow._ayanamsha import AYANAMSHA_VARIANTS, resolve_ayanamsha
 from dashaflow._validation import validate_ayanamsha
@@ -88,3 +89,64 @@ def test_invalid_variant_rejected_by_direct_caller():
 
 def test_sav_invariant_survives_variant():
     assert calculate_vedic_chart(*DELHI_1975, ayanamsha="raman")["ashtakavarga"]["total_bindus"] == 337
+
+
+def test_cast_chart_variant_pass_through():
+    chart = dashaflow.cast_chart(*DELHI_1990_CUSP, ayanamsha="raman")
+    assert chart["metadata"]["ayanamsha_variant"] == "raman"
+    assert chart["lagna"]["sign"] == "Cancer"
+
+
+def test_cast_chart_invalid_variant():
+    with pytest.raises(InvalidInputError, match="Unknown ayanamsha"):
+        dashaflow.cast_chart(*DELHI_1975, ayanamsha="nope")
+
+
+def test_cast_charts_shared_variant():
+    births = [DELHI_1975, ("1995-06-15", "14:30", 19.0760, 72.8777, "Asia/Kolkata")]
+    charts = dashaflow.cast_charts(births, ayanamsha="raman")
+    assert [c["metadata"]["ayanamsha_variant"] for c in charts] == ["raman", "raman"]
+
+
+def test_every_natal_api_forwards_variant(monkeypatch):
+    calls = []
+    real = dashaflow.calculate_vedic_chart
+
+    def recording(*args, **kwargs):
+        calls.append(kwargs.get("ayanamsha"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(dashaflow, "calculate_vedic_chart", recording)
+
+    dashaflow.calculate_compatibility(
+        "1990-04-15", "14:30", 28.6139, 77.2090, "Asia/Kolkata",
+        "1995-06-15", "14:30", 19.0760, 72.8777, "Asia/Kolkata",
+        ayanamsha="raman")
+    assert calls == ["raman", "raman"]
+
+    calls.clear()
+    dashaflow.check_muhurtha("travel", "2026-06-15", "10:00",
+                             28.6139, 77.2090, "Asia/Kolkata", ayanamsha="raman")
+    assert calls == ["raman"]
+
+    calls.clear()
+    dashaflow.analyze_career(*DELHI_1975, ayanamsha="raman")
+    assert calls == ["raman"]
+
+
+def test_time_sensitivity_forwards_variant(monkeypatch):
+    import dashaflow.sensitivity as sensitivity
+
+    seen = []
+    real = sensitivity.calculate_vedic_chart
+
+    def recording(*args, **kwargs):
+        seen.append(kwargs.get("ayanamsha"))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(sensitivity, "calculate_vedic_chart", recording)
+    dashaflow.get_time_sensitivity(*DELHI_1990, ayanamsha="raman")
+    assert seen == ["raman", "raman", "raman"]
+
+    with pytest.raises(InvalidInputError, match="Unknown ayanamsha"):
+        dashaflow.get_time_sensitivity(*DELHI_1990, ayanamsha="nope")
