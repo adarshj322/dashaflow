@@ -832,8 +832,18 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
     except (KeyError, ValueError, AttributeError, TypeError) as exc:
         raise InvalidInputError(f"Invalid natal_chart structure: {exc}") from exc
 
+    metadata = natal_chart.get("metadata")
+    if metadata is not None and not isinstance(metadata, dict):
+        raise InvalidInputError("Invalid natal_chart metadata: expected a dict.")
+    variant = (metadata or {}).get("ayanamsha_variant", "lahiri")
+    try:
+        variant_key = resolve_ayanamsha(variant)[0]
+    except InvalidInputError:
+        raise InvalidInputError(
+            f"Invalid natal_chart ayanamsha_variant: {variant!r}") from None
+
     with _SWE_LOCK:
-        _configure_swiss_ephemeris('')
+        _configure_swiss_ephemeris('', variant_key)
         flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
         jd = swe.julday(utc_noon.year, utc_noon.month, utc_noon.day,
                          utc_noon.hour + utc_noon.minute / 60.0)

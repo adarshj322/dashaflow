@@ -184,6 +184,7 @@ def cast_transit(
     lat: float,
     lon: float,
     timezone: str = "Asia/Kolkata",
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
     Calculate planetary transits overlaid on a natal chart.
@@ -202,6 +203,8 @@ def cast_transit(
         Birth longitude (-180 to 180)
     timezone : str, optional
         IANA timezone. Defaults to "Asia/Kolkata".
+    ayanamsha : str, optional
+        Sidereal ayanamsha variant. Defaults to "lahiri".
 
     Returns
     -------
@@ -210,12 +213,14 @@ def cast_transit(
     """
     validate_birth_input(dob_str, time_str, lat, lon, timezone)
     validate_query_date(transit_date, "transit_date")
+    validate_ayanamsha(ayanamsha)
     natal_chart = calculate_vedic_chart(
         dob_str=dob_str,
         time_str=time_str,
         lat=lat,
         lon=lon,
         timezone_str=timezone,
+        ayanamsha=ayanamsha,
     )
     return calculate_transit(
         transit_date_str=transit_date,
