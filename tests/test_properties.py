@@ -1,6 +1,6 @@
 import datetime
 
-import pytest  # noqa: F401 -- mandated by Task 1 brief; Task 3 uses @pytest.mark.parametrize
+import pytest
 from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
