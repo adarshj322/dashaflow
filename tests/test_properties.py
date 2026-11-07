@@ -6,6 +6,7 @@ from hypothesis import strategies as st
 
 import dashaflow
 from dashaflow._ayanamsha import AYANAMSHA_VARIANTS
+from dashaflow.constants import ZODIAC_SIGNS
 
 VARIANTS = list(AYANAMSHA_VARIANTS) + ["kp", "kp_new", "LAHIRI", "lahiri-icrc"]
 
@@ -45,3 +46,20 @@ def test_leap_day_casts():
     chart = dashaflow.cast_chart("2000-02-29", "06:15", 28.6139, 77.2090,
                                  "Asia/Kolkata")
     assert chart["ashtakavarga"]["total_bindus"] == 337
+
+
+def _absolute(planet):
+    return ZODIAC_SIGNS.index(planet["sign"]) * 30 + planet["degree_precise"]
+
+
+@settings(max_examples=25, deadline=None)
+@given(birth_input(), st.sampled_from(VARIANTS))
+def test_variant_shift_matches_ayanamsha_difference(birth, variant):
+    lahiri = dashaflow.cast_chart(*birth)
+    other = dashaflow.cast_chart(*birth, ayanamsha=variant)
+    expected = (lahiri["metadata"]["ayanamsha_degrees"]
+                - other["metadata"]["ayanamsha_degrees"]) % 360
+    for name in ("Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"):
+        delta = (_absolute(other["planets"][name])
+                 - _absolute(lahiri["planets"][name])) % 360
+        assert abs(delta - expected) < 0.001, (birth, variant, name)
