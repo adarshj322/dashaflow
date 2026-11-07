@@ -7,6 +7,7 @@ import time
 import pytz
 import swisseph as swe
 
+from ._ayanamsha import AYANAMSHA_VARIANTS, resolve_ayanamsha
 from ._version import __version__
 from .ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
 from .chara import calculate_chara_dasha
@@ -39,25 +40,36 @@ logger = logging.getLogger(__name__)
 # Python enrichment runs outside the lock.
 _SWE_LOCK = threading.RLock()
 
-# Years outside this range fall back to the Moshier analytic ephemeris when
-# no extended .se1 files are provided (reduced accuracy vs full integration).
-_FULL_ACCURACY_RANGE = (1800, 2400)
+# Moshier fallback warning is emitted once per process to avoid log spam on
+# every chart cast; callers hold _SWE_LOCK, so the flag needs no own lock.
+_EPHEMERIS_WARNING_EMITTED = False
 
 
-def _ephemeris_accuracy(birth_year: int, ephe_path: str) -> str:
-    """'full' inside the integrated range (or with custom files), else Moshier fallback."""
+def _check_ephemeris_flags(flags: int) -> None:
+    """Warn once per process when the backend actually used Moshier."""
+    global _EPHEMERIS_WARNING_EMITTED
+    if flags & swe.FLG_MOSEPH and not _EPHEMERIS_WARNING_EMITTED:
+        _EPHEMERIS_WARNING_EMITTED = True
+        logger.warning(
+            "Swiss ephemeris unavailable; using Moshier fallback (reduced "
+            "accuracy). Provide .se1 files via ephe_path.")
+
+
+def _ephemeris_accuracy(flags: int, ephe_path: str) -> str:
+    """Accuracy label derived from the flags the backend actually returned."""
+    if flags & swe.FLG_MOSEPH:
+        return "reduced (Moshier fallback — provide .se1 files via ephe_path for full accuracy)"
+    if flags & swe.FLG_JPLEPH:
+        return "full (JPL ephemeris)"
     if ephe_path:
         return "full (custom ephemeris path)"
-    lo, hi = _FULL_ACCURACY_RANGE
-    if lo <= birth_year <= hi:
-        return "full"
-    return "reduced (Moshier fallback — provide .se1 files via ephe_path for full accuracy)"
+    return "full"
 
 
-def _configure_swiss_ephemeris(ephe_path: str = '') -> None:
-    """Set ephemeris path + Lahiri sidereal mode. Callers must hold _SWE_LOCK."""
+def _configure_swiss_ephemeris(ephe_path: str = '', ayanamsha: str = "lahiri") -> None:
+    """Set ephemeris path + sidereal mode. Callers must hold _SWE_LOCK."""
     swe.set_ephe_path(ephe_path or '')
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    swe.set_sid_mode(resolve_ayanamsha(ayanamsha)[2])
 
 
 def get_sign_and_degree(longitude: float) -> tuple:
@@ -322,11 +334,18 @@ def _synthesize_ketu(rahu_data: dict) -> dict:
 
 
 def _compute_raw_planets(jd: float, flags: int) -> tuple:
-    """Compute sidereal longitudes for all grahas. Returns (raw_planets, sun_lon)."""
+    """Compute sidereal longitudes for all grahas.
+
+    Returns (raw_planets, sun_lon, calc_flags) where calc_flags is the OR of
+    the flags returned per body. Any body that fell back sets FLG_MOSEPH;
+    mean nodes report SWIEPH regardless (they need no data files).
+    """
     raw_planets = {}
     sun_lon = None
+    calc_flags = 0
     for name, planet_id in PLANETS.items():
-        res, _ = swe.calc_ut(jd, planet_id, flags)
+        res, ret_flags = swe.calc_ut(jd, planet_id, flags)
+        calc_flags |= ret_flags
         planet_lon = res[0]
         planet_lat = res[1]
         speed = res[3]
@@ -349,7 +368,7 @@ def _compute_raw_planets(jd: float, flags: int) -> tuple:
             "is_retrograde": is_retrograde,
         }
     raw_planets["Ketu"] = _synthesize_ketu(raw_planets["Rahu"])
-    return raw_planets, sun_lon
+    return raw_planets, sun_lon, calc_flags
 
 
 def _enrich_planets(raw_planets: dict, asc_sign_idx: int, sun_lon: float) -> tuple:
@@ -609,6 +628,9 @@ def _validate_chart_contract(chart_data: dict) -> None:
     aya = chart_data["metadata"].get("ayanamsha_degrees")
     if not isinstance(aya, (int, float)) or not math.isfinite(aya):
         raise CalculationError(f"Invalid ayanamsha_degrees: {aya!r}")
+    if chart_data["metadata"].get("ayanamsha_variant") not in AYANAMSHA_VARIANTS:
+        raise CalculationError(
+            f"Invalid ayanamsha_variant: {chart_data['metadata'].get('ayanamsha_variant')!r}")
     if not chart_data["dashas"].get("timeline"):
         raise CalculationError("Dasha timeline is empty.")
     sav_total = chart_data["ashtakavarga"].get("total_bindus")
@@ -617,9 +639,10 @@ def _validate_chart_contract(chart_data: dict) -> None:
 
 
 def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, timezone_str: str,
-                          query_date_str: str = None, ephe_path: str = ''):
+                          query_date_str: str = None, ephe_path: str = '',
+                          ayanamsha: str = "lahiri"):
     """
-    Calculates a comprehensive Vedic Astrological Chart (Sidereal Lahiri).
+    Calculates a comprehensive Vedic Astrological Chart (sidereal, Lahiri default).
 
     Parameters
     ----------
@@ -630,6 +653,8 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     timezone_str : str  (e.g., "Asia/Kolkata")
     query_date_str : str, optional  "YYYY-MM-DD" for Dasha lookup. Defaults to today.
     ephe_path : str, optional  Path to Swiss Ephemeris data files. Defaults to '' (bundled).
+    ayanamsha : str, optional  Ayanamsha variant (e.g. "lahiri", "raman", "kp").
+        Defaults to "lahiri"; see ``AYANAMSHA_VARIANTS`` for the allowlist.
 
     Returns
     -------
@@ -645,8 +670,9 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     """
     started = time.perf_counter()
     logger.debug("cast chart start dob=%s tz=%s", dob_str, timezone_str)
+    variant_key, variant_display, _ = resolve_ayanamsha(ayanamsha)
     with _SWE_LOCK:
-        _configure_swiss_ephemeris(ephe_path)
+        _configure_swiss_ephemeris(ephe_path, variant_key)
         jd, local_dt = _to_jd(dob_str, time_str, timezone_str)
         flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
 
@@ -668,9 +694,10 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
 
         # --- Planetary positions (shared helper; Ketu synthesized inside) ---
         try:
-            raw_planets, sun_lon = _compute_raw_planets(jd, flags)
+            raw_planets, sun_lon, calc_flags = _compute_raw_planets(jd, flags)
         except Exception as exc:
             raise EphemerisError(f"Ephemeris backend failed (planets): {exc}") from exc
+        _check_ephemeris_flags(calc_flags)
 
     # --- Build enriched planet data (shared helper; vargas table-driven) ---
     try:
@@ -707,7 +734,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     # the caller's ephemeris path re-applied (a concurrent transit call
     # configures the bundled path and must not leak into this chart).
     with _SWE_LOCK:
-        _configure_swiss_ephemeris(ephe_path)
+        _configure_swiss_ephemeris(ephe_path, variant_key)
         panchang_data = calculate_panchang(jd, sun_lon, moon_lon, lat, lon)
 
     # --- Ashtakavarga (raw + Sodhita reductions + Sodhya Pinda) ---
@@ -720,11 +747,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     # --- Assemble output ---
     jaimini_karakas = calculate_jaimini_karakas(planets_output)
 
-    birth_year = int(dob_str[:4])
-    accuracy = _ephemeris_accuracy(birth_year, ephe_path)
-    if accuracy.startswith("reduced"):
-        logger.warning("dob year %d outside %s with bundled ephemeris: %s",
-                       birth_year, list(_FULL_ACCURACY_RANGE), accuracy)
+    accuracy = _ephemeris_accuracy(calc_flags, ephe_path)
 
     chart_data = {
         "metadata": {
@@ -732,7 +755,8 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "time": time_str,
             "coordinates": {"lat": lat, "lon": lon},
             "timezone": timezone_str,
-            "ayanamsha": "Lahiri",
+            "ayanamsha": variant_display,
+            "ayanamsha_variant": variant_key,
             "ayanamsha_degrees": round(ayanamsha_val, 4),
             "query_date": query_dt.strftime("%Y-%m-%d"),
             "dashaflow_version": __version__,
@@ -823,20 +847,32 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
     except (KeyError, ValueError, AttributeError, TypeError) as exc:
         raise InvalidInputError(f"Invalid natal_chart structure: {exc}") from exc
 
+    metadata = natal_chart.get("metadata")
+    if metadata is not None and not isinstance(metadata, dict):
+        raise InvalidInputError("Invalid natal_chart metadata: expected a dict.")
+    variant = (metadata or {}).get("ayanamsha_variant", "lahiri")
+    try:
+        variant_key = resolve_ayanamsha(variant)[0]
+    except InvalidInputError:
+        raise InvalidInputError(
+            f"Invalid natal_chart ayanamsha_variant: {variant!r}") from None
+
     with _SWE_LOCK:
-        _configure_swiss_ephemeris('')
+        _configure_swiss_ephemeris('', variant_key)
         flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
         jd = swe.julday(utc_noon.year, utc_noon.month, utc_noon.day,
                          utc_noon.hour + utc_noon.minute / 60.0)
 
         transit_planets = {}
         rahu_lon = rahu_speed = None
+        calc_flags = 0
 
         for name, planet_id in PLANETS.items():
             try:
-                res, _ = swe.calc_ut(jd, planet_id, flags)
+                res, ret_flags = swe.calc_ut(jd, planet_id, flags)
             except Exception as exc:
                 raise EphemerisError(f"Ephemeris backend failed (transit {name}): {exc}") from exc
+            calc_flags |= ret_flags
             planet_lon = res[0]
             speed = res[3]
             sign, deg, sign_idx = get_sign_and_degree(planet_lon)
@@ -877,6 +913,7 @@ def calculate_transit(transit_date_str: str, natal_chart: dict, timezone_str: st
             "house_from_moon": _house_from_lagna(k_sign_idx, natal_moon_idx),
             "sav_points": natal_chart.get("ashtakavarga", {}).get("sarvashtakavarga", {}).get(k_sign, 0)
         }
+        _check_ephemeris_flags(calc_flags)
 
     logger.debug("transit done elapsed=%.3fs", time.perf_counter() - started)
 

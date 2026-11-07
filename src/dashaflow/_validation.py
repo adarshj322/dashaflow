@@ -7,6 +7,7 @@ import re
 
 import pytz
 
+from ._ayanamsha import resolve_ayanamsha
 from .errors import InvalidInputError
 
 _DATE_RE = re.compile(r"^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$")
@@ -54,6 +55,11 @@ def validate_query_date(query_date: str | None, field_name: str = "query_date") 
     if query_date is None:
         return
     validate_date_string(query_date, field_name)
+
+
+def validate_ayanamsha(value: str | None) -> None:
+    """Validate an ayanamsha variant name. Raises InvalidInputError on unknown values."""
+    resolve_ayanamsha(value)
 
 
 def validate_ephe_path(ephe_path: str) -> None:

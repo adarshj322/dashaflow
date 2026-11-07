@@ -169,8 +169,8 @@ def test_ingress_clips_event_at_range_end(monkeypatch):
     import dashaflow.transit as transit_mod
     real = transit_mod._crossings
 
-    def fake(start_jd, end_jd, body):
-        return real(start_jd, end_jd, body) + [(end_jd, 9, 0)]
+    def fake(start_jd, end_jd, body, ayanamsha="lahiri"):
+        return real(start_jd, end_jd, body, ayanamsha) + [(end_jd, 9, 0)]
 
     monkeypatch.setattr(transit_mod, "_crossings", fake)
     out = dashaflow.get_transit_ingresses(

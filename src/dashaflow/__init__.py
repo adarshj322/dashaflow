@@ -2,7 +2,8 @@
 DashaFlow — Vedic Astrology Calculation Engine
 ===============================================
 
-Swiss Ephemeris with Sidereal Lahiri ayanamsha.
+Swiss Ephemeris with a Sidereal ayanamsha (Lahiri by default; pass
+``ayanamsha=`` to any natal entry point to select a variant).
 Rooted in Brihat Parashara Hora Shastra (BPHS) and B.V. Raman's Hindu Predictive Astrology.
 
 Quick start::
@@ -16,7 +17,12 @@ Quick start::
 """
 
 from . import schemas as schemas
-from ._validation import validate_birth_input, validate_ephe_path, validate_query_date
+from ._validation import (
+    validate_ayanamsha,
+    validate_birth_input,
+    validate_ephe_path,
+    validate_query_date,
+)
 from ._version import __version__
 from .access import get_dasha_periods, get_strength_table, get_yoga_list, summarize_chart
 from .career import analyze_career as _career_analyze_internal
@@ -60,9 +66,10 @@ def cast_chart(
     timezone: str,
     query_date: str = None,
     ephe_path: str = '',
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
-    Cast a complete Vedic natal chart (Sidereal Lahiri ayanamsha).
+    Cast a complete Vedic natal chart (Sidereal; Lahiri ayanamsha by default).
 
     Returns a dict with: metadata, panchang, lagna, planets (with dignity,
     combustion, aspects, 14 varga signs), dashas (Vimshottari, 5 levels),
@@ -87,6 +94,9 @@ def cast_chart(
         Date for Dasha lookup as "YYYY-MM-DD". Defaults to today.
     ephe_path : str, optional
         Path to Swiss Ephemeris data files. Defaults to '' (bundled).
+    ayanamsha : str, optional
+        Ayanamsha variant (e.g. "lahiri", "raman", "kp"). Defaults to "lahiri";
+        see ``dashaflow._ayanamsha.AYANAMSHA_VARIANTS`` for the allowlist.
 
     Returns
     -------
@@ -101,6 +111,7 @@ def cast_chart(
     validate_birth_input(dob, time, lat, lon, timezone)
     validate_query_date(query_date, "query_date")
     validate_ephe_path(ephe_path)
+    validate_ayanamsha(ayanamsha)
     return calculate_vedic_chart(
         dob_str=dob,
         time_str=time,
@@ -109,6 +120,7 @@ def cast_chart(
         timezone_str=timezone,
         query_date_str=query_date,
         ephe_path=ephe_path,
+        ayanamsha=ayanamsha,
     )
 
 
@@ -117,6 +129,7 @@ def cast_charts(
     query_date: str = None,
     ephe_path: str = '',
     max_workers: int = 4,
+    ayanamsha: str = "lahiri",
 ) -> list:
     """
     Cast multiple natal charts (batch API for agents).
@@ -131,6 +144,8 @@ def cast_charts(
         Path to Swiss Ephemeris data files. Defaults to '' (bundled).
     max_workers : int, optional
         Thread pool size. Defaults to 4.
+    ayanamsha : str, optional
+        Ayanamsha variant applied to every chart. Defaults to "lahiri".
 
     Returns
     -------
@@ -142,6 +157,7 @@ def cast_charts(
 
     validate_query_date(query_date, "query_date")
     validate_ephe_path(ephe_path)
+    validate_ayanamsha(ayanamsha)
     for entry in births:
         if len(entry) != 5:
             raise InvalidInputError(
@@ -154,7 +170,7 @@ def cast_charts(
         return calculate_vedic_chart(
             dob_str=dob, time_str=time, lat=lat, lon=lon,
             timezone_str=timezone, query_date_str=query_date,
-            ephe_path=ephe_path,
+            ephe_path=ephe_path, ayanamsha=ayanamsha,
         )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
@@ -168,6 +184,7 @@ def cast_transit(
     lat: float,
     lon: float,
     timezone: str = "Asia/Kolkata",
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
     Calculate planetary transits overlaid on a natal chart.
@@ -186,6 +203,8 @@ def cast_transit(
         Birth longitude (-180 to 180)
     timezone : str, optional
         IANA timezone. Defaults to "Asia/Kolkata".
+    ayanamsha : str, optional
+        Sidereal ayanamsha variant. Defaults to "lahiri".
 
     Returns
     -------
@@ -194,12 +213,14 @@ def cast_transit(
     """
     validate_birth_input(dob_str, time_str, lat, lon, timezone)
     validate_query_date(transit_date, "transit_date")
+    validate_ayanamsha(ayanamsha)
     natal_chart = calculate_vedic_chart(
         dob_str=dob_str,
         time_str=time_str,
         lat=lat,
         lon=lon,
         timezone_str=timezone,
+        ayanamsha=ayanamsha,
     )
     return calculate_transit(
         transit_date_str=transit_date,
@@ -211,6 +232,7 @@ def cast_transit(
 def calculate_compatibility(
     dob1: str, time1: str, lat1: float, lon1: float, tz1: str,
     dob2: str, time2: str, lat2: float, lon2: float, tz2: str,
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
     Calculate 36-point Ashtakoot compatibility + Kuja Dosha.
@@ -221,6 +243,8 @@ def calculate_compatibility(
     ----------
     dob1, time1, lat1, lon1, tz1 : Birth details for Person 1 (Male)
     dob2, time2, lat2, lon2, tz2 : Birth details for Person 2 (Female)
+    ayanamsha : str, optional
+        Ayanamsha variant for both charts. Defaults to "lahiri".
 
     Returns
     -------
@@ -230,9 +254,10 @@ def calculate_compatibility(
     """
     validate_birth_input(dob1, time1, lat1, lon1, tz1)
     validate_birth_input(dob2, time2, lat2, lon2, tz2)
+    validate_ayanamsha(ayanamsha)
 
-    chart1 = calculate_vedic_chart(dob1, time1, lat1, lon1, tz1)
-    chart2 = calculate_vedic_chart(dob2, time2, lat2, lon2, tz2)
+    chart1 = calculate_vedic_chart(dob1, time1, lat1, lon1, tz1, ayanamsha=ayanamsha)
+    chart2 = calculate_vedic_chart(dob2, time2, lat2, lon2, tz2, ayanamsha=ayanamsha)
 
     m_moon = chart1["planets"]["Moon"]
     f_moon = chart2["planets"]["Moon"]
@@ -261,6 +286,7 @@ def check_muhurtha(
     lat: float,
     lon: float,
     timezone: str,
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
     Check if a date/time is auspicious for a specific activity.
@@ -279,6 +305,8 @@ def check_muhurtha(
         Location longitude
     timezone : str
         IANA timezone string
+    ayanamsha : str, optional
+        Ayanamsha variant for the underlying chart. Defaults to "lahiri".
 
     Returns
     -------
@@ -286,10 +314,11 @@ def check_muhurtha(
         Verdict (auspicious/mixed/inauspicious), score, factors, panchang_suddhi.
     """
     validate_birth_input(date, time, lat, lon, timezone)
+    validate_ayanamsha(ayanamsha)
     if not isinstance(activity, str) or activity not in ACTIVITY_RULES:
         raise InvalidInputError(f"Unknown activity '{activity}'. Supported: {list(ACTIVITY_RULES.keys())}")
 
-    chart = calculate_vedic_chart(date, time, lat, lon, timezone)
+    chart = calculate_vedic_chart(date, time, lat, lon, timezone, ayanamsha=ayanamsha)
     panchang = chart.get("panchang", {})
     planets = chart.get("planets", {})
     lagna_sign = chart.get("lagna", {}).get("sign")
@@ -302,6 +331,7 @@ def analyze_career(
     lat: float,
     lon: float,
     timezone: str,
+    ayanamsha: str = "lahiri",
 ) -> dict:
     """
     Analyze career potential using the 10th house, D10 Dashamsha, and planetary significations.
@@ -318,6 +348,8 @@ def analyze_career(
         Birth longitude
     timezone : str
         IANA timezone string
+    ayanamsha : str, optional
+        Ayanamsha variant for the underlying chart. Defaults to "lahiri".
 
     Returns
     -------
@@ -325,7 +357,8 @@ def analyze_career(
         10th house analysis, D10 indicators, career themes, strength factors.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
-    chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
+    validate_ayanamsha(ayanamsha)
+    chart = calculate_vedic_chart(dob, time, lat, lon, timezone, ayanamsha=ayanamsha)
     planets = chart.get("planets", {})
     lagna_sign = chart.get("lagna", {}).get("sign")
     return _career_analyze_internal(planets, lagna_sign)

@@ -18,6 +18,8 @@ COMPACT_CHART_SCHEMA = {
         "sav": {"type": "object"},
         "doshas": {"type": "object"},
         "time_sensitivity": {"type": ["object", "null"]},
+        "ayanamsha": {"type": "string"},
+        "ayanamsha_variant": {"type": "string"},
         "query_date": {"type": ["string", "null"]},
     },
 }

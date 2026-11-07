@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.0] - 2026-11-07
+
+### Added
+- Ayanamsha variant parameter on every casting function: `lahiri` (default), `lahiri_icrc`, `true_citra`, `raman`, `krishnamurti`, `krishnamurti_vp291`, `yukteshwar`, `fagan_bradley`; aliases are accepted and unknown values raise `InvalidInputError`. Chart metadata gains `ayanamsha_variant`, and compact summaries name the variant.
+- JPL Horizons DE441 gold corpus with the ayanamsha/planet/ascendant/nakshatra/dasha tolerance ladder.
+
+### Changed
+- `ephemeris_accuracy` now derives from the backend flags actually returned. A default install without `.se1` files reports reduced (Moshier) accuracy instead of claiming full.
+- Transit scans read the variant from natal chart metadata and re-assert the sidereal mode inside every locked `calc_ut`.
+
+### Fixed
+- Silent Moshier substitution now logs once per process.
+
 ## [1.4.1] - 2026-11-06
 
 ### Fixed

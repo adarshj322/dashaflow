@@ -1,0 +1,85 @@
+{
+  "provenance": {
+    "oracle": "JPL Horizons",
+    "oracle_version": "DE441",
+    "retrieved": "2026-11-07",
+    "ayanamsha": "Lahiri",
+    "ayanamsha_constant": "SIDM_LAHIRI",
+    "quantity": "observer ecliptic longitude of date, geocentric apparent (QUANTITIES=31)",
+    "compare": "engine sidereal longitude + metadata ayanamsha_degrees, tolerance 0.05 deg",
+    "generator": "tests/fixtures/generate_gold.py"
+  },
+  "charts": [
+    {
+      "name": "raman_standard_horoscope",
+      "dob": "1918-10-16",
+      "time": "14:20",
+      "lat": 12.9716,
+      "lon": 77.5946,
+      "timezone": "Asia/Kolkata",
+      "utc": "1918-10-16T08:50:00Z",
+      "published": {
+        "lagna_sign": "Capricorn",
+        "lagna_degree_in_sign": 24.95,
+        "lagna_nakshatra": "Dhanishta",
+        "moon_pada": 1,
+        "nakshatras": {
+          "Sun": "Chitra",
+          "Moon": "Shatabhisha",
+          "Mars": "Jyeshtha",
+          "Mercury": "Chitra",
+          "Jupiter": "Punarvasu",
+          "Venus": "Hasta",
+          "Saturn": "Magha"
+        }
+      },
+      "horizons_tropical": {
+        "Sun": 202.1845834,
+        "Moon": 332.4948776,
+        "Mercury": 202.7810033,
+        "Venus": 192.423489,
+        "Mars": 250.7324011,
+        "Jupiter": 105.2850896,
+        "Saturn": 145.6532866
+      }
+    },
+    {
+      "name": "mumbai_1995",
+      "dob": "1995-06-15",
+      "time": "14:30",
+      "lat": 19.076,
+      "lon": 72.8777,
+      "timezone": "Asia/Kolkata",
+      "utc": "1995-06-15T09:00:00Z",
+      "published": null,
+      "horizons_tropical": {
+        "Sun": 83.8128573,
+        "Moon": 295.1410738,
+        "Mercury": 69.9484343,
+        "Venus": 65.7141188,
+        "Mars": 160.0358036,
+        "Jupiter": 248.7822821,
+        "Saturn": 354.385667
+      }
+    },
+    {
+      "name": "delhi_1975",
+      "dob": "1975-01-15",
+      "time": "09:00",
+      "lat": 28.6139,
+      "lon": 77.209,
+      "timezone": "Asia/Kolkata",
+      "utc": "1975-01-15T03:30:00Z",
+      "published": null,
+      "horizons_tropical": {
+        "Sun": 294.3523075,
+        "Moon": 324.1227873,
+        "Mercury": 310.0250771,
+        "Venus": 311.115035,
+        "Mars": 265.1662979,
+        "Jupiter": 345.8754805,
+        "Saturn": 104.7108862
+      }
+    }
+  ]
+}

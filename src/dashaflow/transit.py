@@ -13,11 +13,13 @@ import logging
 import pytz
 import swisseph as swe
 
-from ._validation import validate_birth_input, validate_query_date
+from ._ayanamsha import resolve_ayanamsha
+from ._validation import validate_ayanamsha, validate_birth_input, validate_query_date
 from .constants import PLANETS, ZODIAC_SIGNS
 from .errors import InvalidInputError
 from .vedic_calculator import (
     _SWE_LOCK,
+    _check_ephemeris_flags,
     _configure_swiss_ephemeris,
     calculate_transit,
     calculate_vedic_chart,
@@ -79,31 +81,37 @@ def _jd_to_utc_datetime(jd: float) -> datetime.datetime:
     return pytz.utc.localize(base)
 
 
-def _longitude(jd: float, body: str) -> float:
+def _longitude(jd: float, body: str, ayanamsha: str = "lahiri") -> float:
     """Sidereal longitude of `body` at Julian day `jd` (Ketu derived from Rahu)."""
     with _SWE_LOCK:
+        _configure_swiss_ephemeris('', ayanamsha)
         if body == "Ketu":
-            res, _ = swe.calc_ut(jd, PLANETS["Rahu"], swe.FLG_SIDEREAL)
+            res, calc_flags = swe.calc_ut(jd, PLANETS["Rahu"], swe.FLG_SIDEREAL)
+            _check_ephemeris_flags(calc_flags)
             return (res[0] + 180.0) % 360.0
-        res, _ = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL)
+        res, calc_flags = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL)
+        _check_ephemeris_flags(calc_flags)
         return res[0]
 
 
-def _sign_index(jd: float, body: str) -> int:
+def _sign_index(jd: float, body: str, ayanamsha: str = "lahiri") -> int:
     """Zodiac sign index (0=Aries) of `body` at Julian day `jd`."""
-    return int(_longitude(jd, body) // 30) % 12
+    return int(_longitude(jd, body, ayanamsha) // 30) % 12
 
 
-def _is_retrograde(jd: float, body: str) -> bool:
+def _is_retrograde(jd: float, body: str, ayanamsha: str = "lahiri") -> bool:
     """True when the body moves retrograde at `jd`; nodes are always retrograde."""
     if body in ("Rahu", "Ketu"):
         return True
     with _SWE_LOCK:
-        res, _ = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL | swe.FLG_SPEED)
+        _configure_swiss_ephemeris('', ayanamsha)
+        res, calc_flags = swe.calc_ut(jd, PLANETS[body], swe.FLG_SIDEREAL | swe.FLG_SPEED)
+        _check_ephemeris_flags(calc_flags)
     return res[3] < 0
 
 
-def _crossings(start_jd: float, end_jd: float, body: str) -> list:
+def _crossings(start_jd: float, end_jd: float, body: str,
+               ayanamsha: str = "lahiri") -> list:
     """All sign changes of `body` in [start_jd, end_jd], bisected to a minute.
 
     The predicate is the sign index, not longitude: stations reverse longitude
@@ -112,16 +120,16 @@ def _crossings(start_jd: float, end_jd: float, body: str) -> list:
     step = _STEP_DAYS[body]
     events = []
     prev_jd = start_jd
-    prev_sign = _sign_index(prev_jd, body)
+    prev_sign = _sign_index(prev_jd, body, ayanamsha)
     while prev_jd < end_jd:
         next_jd = min(prev_jd + step, end_jd)
-        next_sign = _sign_index(next_jd, body)
+        next_sign = _sign_index(next_jd, body, ayanamsha)
         if next_sign != prev_sign:
             lo, hi = prev_jd, next_jd
             lo_sign = prev_sign
             while (hi - lo) * 86400.0 > _BISECTION_SECONDS:
                 mid = (lo + hi) / 2.0
-                if _sign_index(mid, body) == lo_sign:
+                if _sign_index(mid, body, ayanamsha) == lo_sign:
                     lo = mid
                 else:
                     hi = mid
@@ -151,10 +159,10 @@ def _local_date(jd: float, tz) -> datetime.date:
 
 def _build_sade_sati_spans(crossings: list, start: datetime.date,
                            end: datetime.date, moon_idx: int, tz,
-                           merge_gap_days: int) -> list:
+                           merge_gap_days: int, ayanamsha: str = "lahiri") -> list:
     """Disjoint phase spans, merging same-phase spans across short off gaps."""
     start_jd = _local_midnight_jd(start, tz)
-    phase = _sade_sati_phase(_sign_index(start_jd, "Saturn"), moon_idx)
+    phase = _sade_sati_phase(_sign_index(start_jd, "Saturn", ayanamsha), moon_idx)
     raw = []
     seg_start = start
     edge = True
@@ -216,7 +224,8 @@ def _build_sade_sati_spans(crossings: list, start: datetime.date,
 
 def get_sade_sati_timeline(dob: str, time: str, lat: float, lon: float,
                            timezone: str, start_date: str, end_date: str,
-                           merge_gap_days: int = 180) -> dict:
+                           merge_gap_days: int = 180,
+                           ayanamsha: str = "lahiri") -> dict:
     """
     Sade Sati phases as a timeline of spans and raw crossings.
 
@@ -232,6 +241,7 @@ def get_sade_sati_timeline(dob: str, time: str, lat: float, lon: float,
     start_date, end_date : ``YYYY-MM-DD``, inclusive, 15 years maximum.
     merge_gap_days : absorb off gaps up to this many days. Default 180.
         ``0`` returns literal spans.
+    ayanamsha : sidereal ayanamsha variant. Default ``"lahiri"``.
 
     Returns
     -------
@@ -239,23 +249,23 @@ def get_sade_sati_timeline(dob: str, time: str, lat: float, lon: float,
     ``active_at_start``, ``active_at_end``, ``spans``, and ``crossings``.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
+    validate_ayanamsha(ayanamsha)
+    variant_key = resolve_ayanamsha(ayanamsha)[0]
     start, end = _validate_range(start_date, end_date)
     if (not isinstance(merge_gap_days, int) or isinstance(merge_gap_days, bool)
             or merge_gap_days < 0):
         raise InvalidInputError(
             f"Invalid merge_gap_days '{merge_gap_days}'. Must be a non-negative integer.")
 
-    natal_chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
+    natal_chart = calculate_vedic_chart(
+        dob, time, lat, lon, timezone, ayanamsha=variant_key)
     moon_sign = natal_chart["planets"]["Moon"]["sign"]
     moon_idx = ZODIAC_SIGNS.index(moon_sign)
     tz = pytz.timezone(timezone)
     start_jd = _local_midnight_jd(start, tz)
     end_jd = _local_midnight_jd(end + datetime.timedelta(days=1), tz)
 
-    with _SWE_LOCK:
-        _configure_swiss_ephemeris('')
-
-    crossings_raw = _crossings(start_jd, end_jd, "Saturn")
+    crossings_raw = _crossings(start_jd, end_jd, "Saturn", variant_key)
     crossings = []
     for jd, from_idx, to_idx in crossings_raw:
         day = _local_date(jd, tz)
@@ -268,15 +278,17 @@ def get_sade_sati_timeline(dob: str, time: str, lat: float, lon: float,
             "to_sign": ZODIAC_SIGNS[to_idx],
             "from_phase": _sade_sati_phase(from_idx, moon_idx),
             "to_phase": _sade_sati_phase(to_idx, moon_idx),
-            "direction": "retrograde" if _is_retrograde(jd, "Saturn") else "direct",
+            "direction": "retrograde" if _is_retrograde(
+                jd, "Saturn", variant_key) else "direct",
         })
 
     spans = _build_sade_sati_spans(
-        crossings_raw, start, end, moon_idx, tz, merge_gap_days)
+        crossings_raw, start, end, moon_idx, tz, merge_gap_days, variant_key)
 
-    start_phase = _sade_sati_phase(_sign_index(start_jd, "Saturn"), moon_idx)
+    start_phase = _sade_sati_phase(
+        _sign_index(start_jd, "Saturn", variant_key), moon_idx)
     end_phase = _sade_sati_phase(
-        _sign_index(end_jd - 1.0 / 86400.0, "Saturn"), moon_idx)
+        _sign_index(end_jd - 1.0 / 86400.0, "Saturn", variant_key), moon_idx)
     logger.debug("sade sati range=%s..%s spans=%d crossings=%d",
                  start_date, end_date, len(spans), len(crossings))
 
@@ -293,7 +305,8 @@ def get_sade_sati_timeline(dob: str, time: str, lat: float, lon: float,
 
 def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
                           timezone: str, start_date: str, end_date: str,
-                          bodies: list = None) -> dict:
+                          bodies: list = None,
+                          ayanamsha: str = "lahiri") -> dict:
     """
     Find exact sign-ingress instants for selected bodies over a date range.
 
@@ -304,6 +317,7 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
     bodies : optional list. Default ``["Jupiter", "Saturn", "Rahu"]``.
         Allowed: Sun, Mars, Mercury, Jupiter, Venus, Saturn, Rahu, Ketu.
         Moon is rejected (it changes sign every ~2.25 days).
+    ayanamsha : sidereal ayanamsha variant. Default ``"lahiri"``.
 
     Returns
     -------
@@ -313,6 +327,8 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
     and houses from the natal Lagna and Moon.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
+    validate_ayanamsha(ayanamsha)
+    variant_key = resolve_ayanamsha(ayanamsha)[0]
     start, end = _validate_range(start_date, end_date)
 
     if bodies is None:
@@ -335,7 +351,8 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
             f"Unknown body {invalid[0]!r}. Allowed: {list(_INGRESS_BODIES)}.")
     bodies = list(dict.fromkeys(bodies))
 
-    natal_chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
+    natal_chart = calculate_vedic_chart(
+        dob, time, lat, lon, timezone, ayanamsha=variant_key)
     lagna_idx = ZODIAC_SIGNS.index(natal_chart["lagna"]["sign"])
     moon_idx = ZODIAC_SIGNS.index(natal_chart["planets"]["Moon"]["sign"])
     tz = pytz.timezone(timezone)
@@ -343,12 +360,9 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
     start_jd = _local_midnight_jd(start, tz)
     end_jd = _local_midnight_jd(end + datetime.timedelta(days=1), tz)
 
-    with _SWE_LOCK:
-        _configure_swiss_ephemeris('')
-
     ingresses = []
     for body in bodies:
-        for jd, from_idx, to_idx in _crossings(start_jd, end_jd, body):
+        for jd, from_idx, to_idx in _crossings(start_jd, end_jd, body, variant_key):
             utc = _jd_to_utc_datetime(jd)
             day = utc.astimezone(tz).date()
             if day < start or day > end:
@@ -359,7 +373,8 @@ def get_transit_ingresses(dob: str, time: str, lat: float, lon: float,
                 "instant_utc": utc.strftime("%Y-%m-%dT%H:%M:00Z"),
                 "from_sign": ZODIAC_SIGNS[from_idx],
                 "to_sign": ZODIAC_SIGNS[to_idx],
-                "direction": "retrograde" if _is_retrograde(jd, body) else "direct",
+                "direction": "retrograde" if _is_retrograde(
+                    jd, body, variant_key) else "direct",
                 "house_from_lagna": _house_from(to_idx, lagna_idx),
                 "house_from_moon": _house_from(to_idx, moon_idx),
             })
@@ -396,7 +411,8 @@ def _ordinal(n: int) -> str:
 
 
 def get_gochara(dob: str, time: str, lat: float, lon: float,
-                timezone: str, transit_date: str) -> dict:
+                timezone: str, transit_date: str,
+                ayanamsha: str = "lahiri") -> dict:
     """
     Transit quality from the natal Moon, weighted by natal Sarvashtakavarga.
 
@@ -409,6 +425,7 @@ def get_gochara(dob: str, time: str, lat: float, lon: float,
     ----------
     dob, time, lat, lon, timezone : natal birth details (``HH:MM[:SS]``).
     transit_date : ``YYYY-MM-DD``.
+    ayanamsha : sidereal ayanamsha variant. Default ``"lahiri"``.
 
     Returns
     -------
@@ -420,9 +437,12 @@ def get_gochara(dob: str, time: str, lat: float, lon: float,
     ``Raman convention (nodes)``; the seven classical planets use BPHS.
     """
     validate_birth_input(dob, time, lat, lon, timezone)
+    validate_ayanamsha(ayanamsha)
+    variant_key = resolve_ayanamsha(ayanamsha)[0]
     validate_query_date(transit_date, "transit_date")
 
-    natal_chart = calculate_vedic_chart(dob, time, lat, lon, timezone)
+    natal_chart = calculate_vedic_chart(
+        dob, time, lat, lon, timezone, ayanamsha=variant_key)
     transit = calculate_transit(transit_date, natal_chart, timezone)
 
     sav = natal_chart["ashtakavarga"]["sarvashtakavarga"]
