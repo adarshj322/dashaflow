@@ -7,6 +7,7 @@ import time
 import pytz
 import swisseph as swe
 
+from ._ayanamsha import AYANAMSHA_VARIANTS, resolve_ayanamsha
 from ._version import __version__
 from .ashtakavarga import calculate_ashtakavarga, calculate_sodhita_ashtakavarga
 from .chara import calculate_chara_dasha
@@ -54,10 +55,10 @@ def _ephemeris_accuracy(birth_year: int, ephe_path: str) -> str:
     return "reduced (Moshier fallback — provide .se1 files via ephe_path for full accuracy)"
 
 
-def _configure_swiss_ephemeris(ephe_path: str = '') -> None:
-    """Set ephemeris path + Lahiri sidereal mode. Callers must hold _SWE_LOCK."""
+def _configure_swiss_ephemeris(ephe_path: str = '', ayanamsha: str = "lahiri") -> None:
+    """Set ephemeris path + sidereal mode. Callers must hold _SWE_LOCK."""
     swe.set_ephe_path(ephe_path or '')
-    swe.set_sid_mode(swe.SIDM_LAHIRI)
+    swe.set_sid_mode(resolve_ayanamsha(ayanamsha)[2])
 
 
 def get_sign_and_degree(longitude: float) -> tuple:
@@ -609,6 +610,9 @@ def _validate_chart_contract(chart_data: dict) -> None:
     aya = chart_data["metadata"].get("ayanamsha_degrees")
     if not isinstance(aya, (int, float)) or not math.isfinite(aya):
         raise CalculationError(f"Invalid ayanamsha_degrees: {aya!r}")
+    if chart_data["metadata"].get("ayanamsha_variant") not in AYANAMSHA_VARIANTS:
+        raise CalculationError(
+            f"Invalid ayanamsha_variant: {chart_data['metadata'].get('ayanamsha_variant')!r}")
     if not chart_data["dashas"].get("timeline"):
         raise CalculationError("Dasha timeline is empty.")
     sav_total = chart_data["ashtakavarga"].get("total_bindus")
@@ -617,9 +621,10 @@ def _validate_chart_contract(chart_data: dict) -> None:
 
 
 def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, timezone_str: str,
-                          query_date_str: str = None, ephe_path: str = ''):
+                          query_date_str: str = None, ephe_path: str = '',
+                          ayanamsha: str = "lahiri"):
     """
-    Calculates a comprehensive Vedic Astrological Chart (Sidereal Lahiri).
+    Calculates a comprehensive Vedic Astrological Chart (sidereal, Lahiri default).
 
     Parameters
     ----------
@@ -630,6 +635,8 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     timezone_str : str  (e.g., "Asia/Kolkata")
     query_date_str : str, optional  "YYYY-MM-DD" for Dasha lookup. Defaults to today.
     ephe_path : str, optional  Path to Swiss Ephemeris data files. Defaults to '' (bundled).
+    ayanamsha : str, optional  Ayanamsha variant (e.g. "lahiri", "raman", "kp").
+        Defaults to "lahiri"; see ``AYANAMSHA_VARIANTS`` for the allowlist.
 
     Returns
     -------
@@ -645,8 +652,9 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     """
     started = time.perf_counter()
     logger.debug("cast chart start dob=%s tz=%s", dob_str, timezone_str)
+    variant_key, variant_display, _ = resolve_ayanamsha(ayanamsha)
     with _SWE_LOCK:
-        _configure_swiss_ephemeris(ephe_path)
+        _configure_swiss_ephemeris(ephe_path, variant_key)
         jd, local_dt = _to_jd(dob_str, time_str, timezone_str)
         flags = swe.FLG_SIDEREAL | swe.FLG_SPEED
 
@@ -707,7 +715,7 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
     # the caller's ephemeris path re-applied (a concurrent transit call
     # configures the bundled path and must not leak into this chart).
     with _SWE_LOCK:
-        _configure_swiss_ephemeris(ephe_path)
+        _configure_swiss_ephemeris(ephe_path, variant_key)
         panchang_data = calculate_panchang(jd, sun_lon, moon_lon, lat, lon)
 
     # --- Ashtakavarga (raw + Sodhita reductions + Sodhya Pinda) ---
@@ -732,7 +740,8 @@ def calculate_vedic_chart(dob_str: str, time_str: str, lat: float, lon: float, t
             "time": time_str,
             "coordinates": {"lat": lat, "lon": lon},
             "timezone": timezone_str,
-            "ayanamsha": "Lahiri",
+            "ayanamsha": variant_display,
+            "ayanamsha_variant": variant_key,
             "ayanamsha_degrees": round(ayanamsha_val, 4),
             "query_date": query_dt.strftime("%Y-%m-%d"),
             "dashaflow_version": __version__,
