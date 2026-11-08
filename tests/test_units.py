@@ -306,6 +306,13 @@ class TestYogaSingles:
         p = _yp({"Venus": "Capricorn"}, {"Venus": 10})
         assert "Amala Yoga" in self._names(detect_yogas(p, "Aries"))
 
+    def test_amala_pick_is_hash_seed_independent(self):
+        # Both benefics in 10th from Lagna: Jupiter wins by canonical order,
+        # never by set iteration order (which varied per hash seed).
+        p = _yp({"Jupiter": "Capricorn", "Venus": "Capricorn"}, {"Jupiter": 10, "Venus": 10})
+        formed = [y["formed_by"] for y in detect_yogas(p, "Aries") if y["name"] == "Amala Yoga"]
+        assert all(f == ["Jupiter"] for f in formed), formed
+
     def test_saraswati_and_lakshmi(self):
         p = _yp({"Jupiter": "Cancer", "Venus": "Taurus", "Mercury": "Libra"},
                 {"Jupiter": 4, "Venus": 2, "Mercury": 7},
