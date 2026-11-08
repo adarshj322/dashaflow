@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.1] - 2026-11-08
+
+### Fixed
+- Amala Yoga selection could vary by Python hash seed: natural-benefics iteration used an unordered `set`, so with multiple benefics in the 10th from Lagna/Moon the `break` kept an arbitrary benefic. Now iterates `BENEFIC_ORDER = ("Jupiter", "Venus", "Mercury")` — canonical significance order, deterministic across processes and seeds.
+
+### Changed
+- Requires nothing new. No API changes. Tests: 445 passing.
+
 ## [1.5.0] - 2026-11-07
 
 ### Added

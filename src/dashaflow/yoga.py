@@ -12,6 +12,9 @@ from .constants import (
 # Mercury/Jupiter/Venus only in this simplified engine); waxing-Moon variants
 # are noted in docstrings rather than detected.
 BENEFICS = {"Jupiter", "Venus", "Mercury"}
+# Canonical significance order for deterministic output (never iterate the set:
+# set order varies by hash seed and decides which benefic the `break` below keeps).
+BENEFIC_ORDER = ("Jupiter", "Venus", "Mercury")
 MAHAPURUSHA_PLANETS = {"Mars", "Mercury", "Jupiter", "Venus", "Saturn"}
 MAHAPURUSHA_NAMES = {
     "Mars": "Ruchaka Yoga",
@@ -423,7 +426,7 @@ def detect_yogas(planets: dict, lagna_sign: str) -> list:
 
     # --- Amala Yoga: Natural benefic in 10th from Lagna or Moon ---
     for base_name, base_idx in [("Lagna", lagna_idx), ("Moon", moon_idx)]:
-        for b_name in BENEFICS:
+        for b_name in BENEFIC_ORDER:
             bd = planets.get(b_name)
             if bd and _house_from(base_idx, bd["sign_idx"]) == 10:
                 yogas.append({
