@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.2] - 2026-11-15
+
+### Fixed
+- Raj Yoga false positive: house 1 was counted as both a kendra and a trikona, so the lagna lord was reported as "lord of both kendra and trikona" whenever it sat in a kendra/trikona. The single-planet Raj Yoga now uses the `get_yogakaraka` table and excludes house 1 from the kendra/trikona lord sets. True yogakaraka entries and the kendra–trikona conjunction/aspect rule are unchanged. An 80-chart check removed 45 false entries (65 → 20, all true).
+
+### Changed
+- No API changes. Tests: 448 passing.
+
 ## [1.5.1] - 2026-11-08
 
 ### Fixed

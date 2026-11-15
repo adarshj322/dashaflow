@@ -7,6 +7,7 @@ from .constants import (
     TRIKONA_HOUSES,
     ZODIAC_SIGNS,
 )
+from .dignity import get_yogakaraka
 
 # Natural benefics for yoga purposes. Moon is excluded here (Adhi/Amala use
 # Mercury/Jupiter/Venus only in this simplified engine); waxing-Moon variants
@@ -216,14 +217,13 @@ def detect_yogas(planets: dict, lagna_sign: str) -> list:
             })
 
     # --- Raj Yoga: Lord of kendra + Lord of trikona conjoined ---
-    kendra_lords = set()
-    trikona_lords = set()
-    for h in KENDRA_HOUSES:
-        kendra_lords.add(_lord_of_house(lagna_idx, h))
-    for h in TRIKONA_HOUSES:
-        trikona_lords.add(_lord_of_house(lagna_idx, h))
+    # House 1 is both a kendra and a trikona, but its lord is the self, not a
+    # Raja Yoga karaka. Counting it made every lagna lord a false yogakaraka.
+    kendra_lords = {_lord_of_house(lagna_idx, h) for h in KENDRA_HOUSES - {1}}
+    trikona_lords = {_lord_of_house(lagna_idx, h) for h in TRIKONA_HOUSES - {1}}
 
-    dual_lords = kendra_lords & trikona_lords
+    yogakaraka = get_yogakaraka(lagna_sign)
+    dual_lords = {yogakaraka} if yogakaraka else set()
     for lord_name in dual_lords:
         pd = planets.get(lord_name)
         if pd and pd.get("house") in KENDRA_HOUSES | TRIKONA_HOUSES:

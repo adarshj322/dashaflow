@@ -345,6 +345,24 @@ class TestYogaSingles:
         p = _yp({"Saturn": "Scorpio"}, {"Saturn": 7})
         assert "Raj Yoga" in self._names(detect_yogas(p, "Taurus"))
 
+    def test_raj_dual_lord_rejects_lagna_lord_in_kendra(self):
+        # Gemini lagna: Mercury rules the 1st and 4th, both kendras. The 1st
+        # is also a trikona, but that degenerate overlap does not make Mercury
+        # a yogakaraka; Mercury in the 7th must not form a single-planet Raj Yoga.
+        p = _yp({"Mercury": "Sagittarius"}, {"Mercury": 7})
+        assert "Raj Yoga" not in self._names(detect_yogas(p, "Gemini"))
+
+    def test_raj_dual_lord_rejects_lagna_lord_in_trikona(self):
+        # Aries lagna: Mars rules the 1st and 8th; Mars in the 9th must not
+        # form a single-planet Raj Yoga.
+        p = _yp({"Mars": "Sagittarius"}, {"Mars": 9})
+        assert "Raj Yoga" not in self._names(detect_yogas(p, "Aries"))
+
+    def test_raj_dual_lord_keeps_true_yogakaraka(self):
+        # Cancer lagna: Mars rules the 5th (trikona) and 10th (kendra).
+        p = _yp({"Mars": "Aries"}, {"Mars": 10})
+        assert "Raj Yoga" in self._names(detect_yogas(p, "Cancer"))
+
 
 class TestPanchangEdges:
     def test_vara_known_saturday(self):
