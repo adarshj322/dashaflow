@@ -215,6 +215,24 @@ class TestCareerBranches:
         res = analyze_career(planets, "Aries")
         assert res["d10_indicators"] == {}
 
+    def test_d10_and_strength_notes(self):
+        # Saturn in Aries D10 is not own/exalted; no D10 planet is strong.
+        planets = {"Saturn": {"house": 1, "sign": "Aries", "d10_sign": "Aries",
+                              "dignity": "neutral", "is_retrograde": False}}
+        res = analyze_career(planets, "Aries")
+        assert res["d10_strong_planets"] == []
+        notes = " ".join(res["interpretation_notes"])
+        assert "own sign or exaltation" in notes
+        assert "not a negative career verdict" in notes
+
+    def test_d10_strong_planet_still_reported(self):
+        # Mars in Aries D10 is own sign; the criterion still reports it.
+        planets = {"Mars": {"house": 10, "sign": "Capricorn", "d10_sign": "Aries",
+                            "dignity": "exalted", "is_retrograde": False}}
+        res = analyze_career(planets, "Aries")
+        assert "Mars" in res["d10_strong_planets"]
+        assert any("d10_strong" in n for n in res["interpretation_notes"])
+
 
 class TestShadbalaUnits:
     def test_uchcha_extremes(self):
