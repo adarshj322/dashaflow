@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.5.3] - 2026-11-19
+
+### Fixed
+- Career payload clarity: `analyze_career` now returns `interpretation_notes` explaining that `d10_strong` means own sign or exaltation in D10 only, and that an empty `strength_factors` list means no engine criterion was met — not a negative career verdict. `CAREER_SCHEMA` documents the new fields. No behavior change to the strength calculation.
+
+### Changed
+- No API breakage: additive fields only. Tests: 450 passing.
+
 ## [1.5.2] - 2026-11-15
 
 ### Fixed

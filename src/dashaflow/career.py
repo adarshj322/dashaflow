@@ -64,6 +64,12 @@ def analyze_career(planets: dict, lagna_sign: str) -> dict:
     Returns
     -------
     dict with career indicators, D10 analysis, and recommendations
+
+    Notes
+    -----
+    ``d10_strong`` is own sign or exaltation in D10 only; friendly/neutral
+    placements are not labeled strong. ``strength_factors`` may be empty when
+    none of the engine's criteria are met; that is not a negative career verdict.
     """
     if not isinstance(planets, dict):
         raise InvalidInputError("Invalid planets: must be a planets dict.")
@@ -184,4 +190,8 @@ def analyze_career(planets: dict, lagna_sign: str) -> dict:
         "primary_planets": primary_planets,
         "strength_factors": strength_factors,
         "d10_strong_planets": d10_strong_planets,
+        "interpretation_notes": [
+            "d10_strong = own sign or exaltation in D10; friendly/neutral placements are not labeled strong.",
+            "strength_factors lists only factors the engine found; an empty list means none met its criteria, not a negative career verdict.",
+        ],
     }

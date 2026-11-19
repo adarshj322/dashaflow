@@ -92,6 +92,8 @@ CAREER_SCHEMA = {
         "d10_indicators": {"type": "object"},
         "career_themes": {"type": "array"},
         "strength_factors": {"type": "array"},
+        "d10_strong_planets": {"type": "array"},
+        "interpretation_notes": {"type": "array"},
     },
 }
 
